@@ -65,7 +65,7 @@ class MozakDataset2d(PairedDataset2d):
                 int64_list=tf.train.Int64List(value=self.x.flatten().tolist())
             ),
             'image_label': tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
+                float_list=tf.train.FloatList(value=self.y.flatten().tolist())
             ),
         }
         # Create a Features message using tf.train.Example.
