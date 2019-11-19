@@ -10,6 +10,7 @@ from mozak.datasets.trace import nodes_and_edges_to_trace
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
 import glob
 import tensorflow as tf
+from fftracer.utils.features import _int64_feature, _bytes_feature
 
 
 class MozakDataset2d(PairedDataset2d):
@@ -60,10 +61,13 @@ class MozakDataset2d(PairedDataset2d):
             'seed_x': _int64_feature(self.seed.x),
             'seed_y': _int64_feature(self.seed.y),
             'seed_z': _int64_feature(self.seed.z),
-            'image_raw': _bytes_feature(self.x.tostring()),
-            'image_label': _bytes_feature(self.y.tostring())
+            'image_raw': tf.train.Feature(
+                int64_list=tf.train.Int64List(value=self.x.flatten().tolist())
+            ),
+            'image_label': tf.train.Feature(
+                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
+            ),
         }
-
         # Create a Features message using tf.train.Example.
         example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
         return example_proto.SerializeToString()
