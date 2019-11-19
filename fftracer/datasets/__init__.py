@@ -21,9 +21,8 @@ class PairedDataset2d(ABC):
         self.y = None  # the pixel-wise labels for the image
         self.seed = seed
 
-
     @abstractmethod
-    def load_data(self):
+    def load_data(self, gs_dir, data_dir):
         raise
 
     def check_xy_shapes_match(self):
@@ -33,6 +32,11 @@ class PairedDataset2d(ABC):
     def shape(self):
         self.check_xy_shapes_match()
         return self.x.shape
+
+    @abstractmethod
+    def serialize_example(self):
+        """create a serialized tf.Example"""
+        pass
 
 
 

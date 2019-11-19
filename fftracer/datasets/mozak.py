@@ -3,13 +3,13 @@ import skimage
 import numpy as np
 import os.path as osp
 
-from fftracer.datasets import PairedDataset2d, Seed
-from collections import namedtuple
+from fftracer.datasets import PairedDataset2d
 from mozak.utils.connectors import ImageAPIConnector
 from mozak.datasets.gold_standard import MozakGoldStandardTrace
 from mozak.datasets.trace import nodes_and_edges_to_trace
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
 import glob
+import tensorflow as tf
 
 
 class MozakDataset2d(PairedDataset2d):
@@ -47,3 +47,23 @@ class MozakDataset2d(PairedDataset2d):
                                           trace_value=0.95, pad_value=0.05)
         self.check_xy_shapes_match()
         return
+
+    def serialize_example(self):
+        """
+        Creates a tf.Example message ready to be written to a file.
+        """
+        # Create a dictionary mapping the feature name to the tf.Example-compatible
+        # data type.
+        feature = {
+            'shape_x': _int64_feature(self.shape[0]),
+            'shape_y': _int64_feature(self.shape[1]),
+            'seed_x': _int64_feature(self.seed.x),
+            'seed_y': _int64_feature(self.seed.y),
+            'seed_z': _int64_feature(self.seed.z),
+            'image_raw': _bytes_feature(self.x.tostring()),
+            'image_label': _bytes_feature(self.y.tostring())
+        }
+
+        # Create a Features message using tf.train.Example.
+        example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
+        return example_proto.SerializeToString()
