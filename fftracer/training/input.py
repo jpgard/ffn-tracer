@@ -4,19 +4,24 @@ Functions for processing model input.
 
 import tensorflow as tf
 import os
+from fftracer import utils
 
 
-def load_tfrecord_dataset(tfrecord_files, feature_schema):
+def load_tfrecord_dataset(tfrecord_dir, feature_schema):
     """
     Load and parse the dataset in tfrecord files.
-    :param tfrecord_files: list of files containg tfrecords
+    :param tfrecord_files: directory of files containg tfrecords
     :param feature_schema: dict of {feature_name, tf.io.<feature_type>}
     :return: a dictionary mapping dataset_ids to datasets, which are parsed
     according to the specified feature schema.
     """
+    tfrecord_files = [os.path.join(tfrecord_dir, x)
+                      for x in os.listdir(tfrecord_dir)
+                      if x.endswith(utils.TFRECORD)]
     volume_map = dict()
     for file in tfrecord_files:
-        dataset_id = os.path.splitext(file)[0]
+        basename = os.path.basename(file)
+        dataset_id = os.path.splitext(basename)[0]
         raw_image_dataset = tf.data.TFRecordDataset(tfrecord_files)
 
         def _parse_image_function(example_proto):
@@ -63,6 +68,33 @@ def parse_example(example: dict):
     return {"x": image_raw, "y": image_label, "seed": seed}
 
 
-def load_patch_coordinates(filename):
-    # TODO(jpgard): mimic logic from ffn's function with equivalent name
-    return
+def load_patch_coordinates(coordinate_dir):
+    """
+    Loads coordinates and volume names from file of coordinates.
+
+    Mimics logic from ffn's function with equivalent name.
+    :param coordinate_dir: directory containing tfrecord files of coordinates.
+    :return: Tuple of coordinates (shape `[1, 3]`) and volume name (shape `[1]`) tensors.
+    """
+    tfrecord_files = [os.path.join(coordinate_dir, x)
+                      for x in os.listdir(coordinate_dir)
+                      if x.endswith(utils.TFRECORD)]
+    dataset = tf.data.TFRecordDataset(
+        tfrecord_files,
+        compression_type='GZIP')
+    record = dataset.__iter__().next()
+
+    feature_description = {
+        "center": tf.io.FixedLenFeature(shape=[1, 3], dtype=tf.int64),
+        "label_volume_name": tf.io.FixedLenFeature(shape=[1], dtype=tf.string),
+    }
+
+    def _parse_function(example_proto):
+        # Parse the input `tf.Example` proto using the dictionary above.
+        return tf.io.parse_single_example(example_proto, feature_description)
+
+    parsed_example = _parse_function(record)
+
+    coord = parsed_example['center']
+    volname = parsed_example['label_volume_name']
+    return (coord, volname)
