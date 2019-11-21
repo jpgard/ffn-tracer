@@ -5,6 +5,7 @@ Functions for processing model input.
 import tensorflow as tf
 import os
 
+
 def load_tfrecord_dataset(tfrecord_files, feature_schema):
     """
     Load and parse the dataset in tfrecord files.
@@ -17,9 +18,10 @@ def load_tfrecord_dataset(tfrecord_files, feature_schema):
     for file in tfrecord_files:
         dataset_id = os.path.splitext(file)[0]
         raw_image_dataset = tf.data.TFRecordDataset(tfrecord_files)
+
         def _parse_image_function(example_proto):
-          # Parse the input tf.Example proto using the dictionary above.
-          return tf.io.parse_single_example(example_proto, feature_schema)
+            # Parse the input tf.Example proto using the dictionary above.
+            return tf.io.parse_single_example(example_proto, feature_schema)
 
         parsed_image_dataset = raw_image_dataset.map(_parse_image_function)
         volume_map[dataset_id] = parsed_image_dataset
@@ -62,5 +64,5 @@ def parse_example(example: dict):
 
 
 def load_patch_coordinates(filename):
-    #TODO(jpgard): mimic logic from ffn's function with equivalent name
+    # TODO(jpgard): mimic logic from ffn's function with equivalent name
     return
