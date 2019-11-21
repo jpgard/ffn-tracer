@@ -10,7 +10,7 @@ from mozak.datasets.trace import nodes_and_edges_to_trace
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
 import glob
 import tensorflow as tf
-from fftracer.utils.features import _int64_feature, _bytes_feature
+from fftracer.utils.features import _int64_feature
 
 
 class MozakDataset2d(PairedDataset2d):
