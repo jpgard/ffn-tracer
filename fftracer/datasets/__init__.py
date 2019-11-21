@@ -20,6 +20,8 @@ class PairedDataset2d(ABC):
         self.x = None  # the input grayscale image
         self.y = None  # the pixel-wise labels for the image
         self.seed = seed
+        self.pom_pad = 0.05 # value by which zero labels are increased/1 labels are
+        # decreased
 
     @abstractmethod
     def load_data(self, gs_dir, data_dir):
@@ -37,6 +39,15 @@ class PairedDataset2d(ABC):
     def serialize_example(self):
         """create a serialized tf.Example"""
         pass
+
+    @abstractmethod
+    def generate_training_coordinates(self, out_dir, n):
+        """Sample a set of training coordinates and write to tfrecord file."""
+        pass
+
+    @abstractmethod
+    def write_tfrecord(self, out_dir):
+        """write the dataset to a tfrecord file."""
 
 
 

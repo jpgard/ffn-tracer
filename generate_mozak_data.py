@@ -7,7 +7,8 @@ python generate_mozak_data.py \
     --gs_dir data/gold_standard \
     --img_dir data/img \
     --seed_csv data/seed_locations/seed_locations.csv \
-    --out_dir data/tfrecords
+    --out_dir data/tfrecords \
+    --num_training_coords 1000
 """
 
 import argparse
@@ -17,7 +18,7 @@ import tensorflow as tf
 import os.path as osp
 
 
-def main(dataset_ids, gs_dir, seed_csv, out_dir, img_dir=None):
+def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, img_dir=None):
     seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
     for dataset_id in dataset_ids:
@@ -25,11 +26,9 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, img_dir=None):
         dset = MozakDataset2d(dataset_id, seed)
         dset.load_data(gs_dir, img_dir)
         neuron_datasets[dataset_id] = dset
-        # write to a tfrecord file
-        tfrecord_filepath = osp.join(out_dir, dataset_id + ".tfrecord")
-        with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
-            example = dset.serialize_example()
-            writer.write(example)
+        # write data to a tfrecord file
+        dset.write_tfrecord(out_dir)
+        dset.generate_training_coordinates(out_dir, num_training_coords)
     return
 
 
@@ -43,5 +42,8 @@ if __name__ == "__main__":
                         required=False)
     parser.add_argument("--seed_csv", help="csv file containing seed locations",
                         required=True)
+    parser.add_argument("--num_training_coords", help="number of training coordinates "
+                                                      "to generate",
+                        required=True, type=int)
     args = parser.parse_args()
     main(**vars(args))
