@@ -28,6 +28,7 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, img_dir=No
         neuron_datasets[dataset_id] = dset
         # write data to a tfrecord file
         dset.write_tfrecord(out_dir)
+        # write training coordinates (this does work of ffn's build_coordinates.py)
         dset.generate_training_coordinates(out_dir, num_training_coords)
     return
 
