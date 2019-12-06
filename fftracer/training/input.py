@@ -111,17 +111,20 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
 
     The volume object must support Numpy-like indexing, as well as shape, ndim,
     and dtype properties.  The volume can be 3d or 4d.
-    :param coordinates: tensor of shape [1, 3] containing XYZ coordinates of the
+    :param coordinates: tensor of shape [1, 2] containing XY coordinates of the
         center of the subvolume to load.
     :param volume_name: tensor of shape [1] containing names of volumes to load data
         from.
-    :param shape: a 3-sequence giving the XYZ shape of the data to load.
+    :param shape: a 2-sequence giving the XY shape of the data to load.
     :param volume_map: a dictionary mapping volume names to volume objects.  See above
         for API requirements of the Numpy-like volume objects.
     :param feature_name: the name of the feature to grab from the volume.
     :return: Tensor result of reading data of shape [1] + shape[::-1] + [num_channels]
   from given center coordinate and volume name.  Dtype matches input volumes.
     """
+    # add a third axis to coordinates and shape to fetch the z-dimension
+    coordinates = tf.concat([coordinates, [0,]], -1)
+    shape = tf.concat([shape, [1,]], -1)
     start_offset = (np.array(shape) - 1) // 2
     # convert volume_name to string representation for indexing into volume_map
     volume_name = volume_name.numpy()[0].decode("utf-8")
@@ -132,14 +135,13 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
                 element['shape_y'].numpy().tolist()[0]]
     volume_sparse = element[feature_name]
     volume = tf.sparse.to_dense(volume_sparse)
-    volume = tf.reshape(volume, shape_xy)
+    volume = tf.reshape(volume, shape_xy) # volume now has shape (X,Y)
+    volume = tf.expand_dims(volume, axis=-1) # volume now has shape (X,Y,Z)
     starts = np.array(coordinates) - start_offset
-    # this returns slice in ZYX order
+    # BoundingBox returns slice in ZYX order, so we reverse the resulting slc tuple
     slc = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
+    slc = slc[::-1]
     data = volume[slc]
-    # add flat channels dim; assume 2d data
-    # TODO(jpgard): should we be creating a 4d tensor here?
-    data = np.expand_dims(data, 4)
     # Add flat batch dim and return.
     data = np.expand_dims(data, 0)
     return data
