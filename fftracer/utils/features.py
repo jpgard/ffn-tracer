@@ -1,6 +1,7 @@
 """Feature functions for working with Tensorflow data."""
 
 import tensorflow as tf
+from fftracer.training.input import get_dense_array_from_element, get_shape_xy_from_element
 
 
 # The following functions can be used to convert a value to a type compatible
@@ -38,3 +39,16 @@ def get_image_shape(volume_map, volume_name):
     for example_element in volume_map[volume_name]:
         return tf.concat([example_element["shape_x"], example_element["shape_y"]],
                          axis=-1)
+
+def get_image_mean_and_stddev(volume_map, volume_name):
+    """Fetch the mean and stddev pixel value for the raw image."""
+    # convert volume_name to string representation for indexing into volume_map
+    volume_name = volume_name.numpy()[0].decode("utf-8")
+    # the volume is a dataset of size one; take the first(only) element, fetch its
+    # corresponding image, and reshape to a 2d array
+    element = volume_map[volume_name].__iter__().next()
+    shape_xy = get_shape_xy_from_element(element)
+    volume = get_dense_array_from_element(element, 'image_raw', shape_xy)
+    image_mean = tf.math.reduce_mean(tf.cast(volume, tf.float32))
+    image_stddev = tf.math.reduce_std(tf.cast(volume, tf.float32))
+    return image_mean, image_stddev
