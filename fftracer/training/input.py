@@ -105,6 +105,20 @@ def load_patch_coordinates(coordinate_dir):
     return (coord, volname)
 
 
+def get_dense_array_from_element(element, feature_name, shape):
+    """Fetch the sparse array for feature_name, densify, and reshape."""
+    volume_sparse = element[feature_name]
+    volume = tf.sparse.to_dense(volume_sparse)
+    volume = tf.reshape(volume, shape)  # volume now has shape (X,Y)
+    return volume
+
+
+def get_shape_xy_from_element(element):
+    shape_xy = [element['shape_x'].numpy().tolist()[0],
+                element['shape_y'].numpy().tolist()[0]]
+    return shape_xy
+
+
 def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_name):
     """
     Load data from Numpy-like volumes.
@@ -128,11 +142,8 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
     # the volume is a dataset of size one; take the first(only) element, fetch its
     # corresponding image, and reshape to a 2d array
     element = volume_map[volume_name].__iter__().next()
-    shape_xy = [element['shape_x'].numpy().tolist()[0],
-                element['shape_y'].numpy().tolist()[0]]
-    volume_sparse = element[feature_name]
-    volume = tf.sparse.to_dense(volume_sparse)
-    volume = tf.reshape(volume, shape_xy) # volume now has shape (X,Y)
+    shape_xy = get_shape_xy_from_element(element)
+    volume = get_dense_array_from_element(element, feature_name, shape_xy)
     volume = tf.expand_dims(volume, axis=-1) # volume now has shape (X,Y,Z)
     starts = np.array(coordinates) - start_offset
     # BoundingBox returns slice in XYZ order, so these can be used to slice the volume
