@@ -42,7 +42,11 @@ class PairedDataset2d(ABC):
 
     @abstractmethod
     def generate_training_coordinates(self, out_dir, n):
-        """Sample a set of training coordinates and write to tfrecord file."""
+        """Sample a set of training coordinates and write to tfrecord file.
+
+        This method does the work of ffn's build_coordinates.py, but as a class method
+        instead of a standalone script.
+        """
         pass
 
     @abstractmethod
