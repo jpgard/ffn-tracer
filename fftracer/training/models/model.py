@@ -1,6 +1,6 @@
 """Classes for FFN model definition."""
 
-from ffn.training.models.model import FFNModel
+from ffn.training.model import FFNModel
 
 
 class FFNTracerModel(FFNModel):

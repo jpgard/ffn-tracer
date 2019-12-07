@@ -41,7 +41,9 @@ def get_image_shape(volume_map, volume_name):
                          axis=-1)
 
 def get_image_mean_and_stddev(volume_map, volume_name):
-    """Fetch the mean and stddev pixel value for the raw image."""
+    """Fetch the mean and stddev pixel values for the raw image.
+
+    Returns two Tensors of shape [1,] containing image mean and stddev, respectively."""
     # convert volume_name to string representation for indexing into volume_map
     volume_name = volume_name.numpy()[0].decode("utf-8")
     # the volume is a dataset of size one; take the first(only) element, fetch its
@@ -51,4 +53,5 @@ def get_image_mean_and_stddev(volume_map, volume_name):
     volume = get_dense_array_from_element(element, 'image_raw', shape_xy)
     image_mean = tf.math.reduce_mean(tf.cast(volume, tf.float32))
     image_stddev = tf.math.reduce_std(tf.cast(volume, tf.float32))
+
     return image_mean, image_stddev
