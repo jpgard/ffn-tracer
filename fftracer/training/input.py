@@ -134,7 +134,7 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
         for API requirements of the Numpy-like volume objects.
     :param feature_name: the name of the feature to grab from the volume.
     :return: Tensor result of reading data of shape [1] + shape[::-1] + [num_channels]
-  from given center coordinate and volume name.  Dtype matches input volumes.
+    from given center coordinate and volume name.  Dtype matches input volumes.
     """
     start_offset = (np.array(shape) - 1) // 2
     # convert volume_name to string representation for indexing into volume_map
@@ -144,7 +144,7 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
     element = volume_map[volume_name].__iter__().next()
     shape_xy = get_shape_xy_from_element(element)
     volume = get_dense_array_from_element(element, feature_name, shape_xy)
-    volume = tf.expand_dims(volume, axis=-1) # volume now has shape (X,Y,Z)
+    volume = tf.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
     starts = np.array(coordinates) - start_offset
     # BoundingBox returns slice in XYZ order, so these can be used to slice the volume
     slc = bounding_box.BoundingBox(start=starts.ravel(), size=shape).to_slice()
@@ -153,3 +153,73 @@ def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_
     data = np.expand_dims(data, 0)
     # return data with shape [batch_dim, X, Y, Z]
     return data
+
+
+def offset_and_scale_patches(patches,
+                             volname,
+                             offset_scale_map=(),
+                             default_offset=0.0,
+                             default_scale=1.0,
+                             scope='offset_and_scale_patches'):
+    """Apply offset and scale from map matching volname, or defaults.
+
+    Ported from ffn.training.inputs.py.
+
+    Args:
+      patches: tensor to apply offset and scale to.
+      volname: scalar string tensor (note LoadPatchCoordinates returns a 1-vector
+               instead.)
+      offset_scale_map: map of string volnames to (offset, scale) pairs.
+      default_offset: used if volname is not in offset_scale_map.
+      default_scale: used if volname is not in offset_scale_map.
+      scope: TensorFlow scope for subops.
+
+    Returns:
+      patches cast to float32, less offset, divided by scale for given volname, or
+      else defaults.
+    """
+    with tf.name_scope(scope):
+        offset, scale = get_offset_scale(
+            volname,
+            offset_scale_map=offset_scale_map,
+            default_offset=default_offset,
+            default_scale=default_scale)
+        return (tf.cast(patches, tf.float32) - offset) / scale
+
+
+def get_offset_scale(volname,
+                     offset_scale_map=(),
+                     default_offset=0.0,
+                     default_scale=1.0,
+                     name='get_offset_scale'):
+    """Gets offset and scale from map matching volname, or defaults.
+
+    Ported from ffn.training.inputs.py.
+
+    Args:
+      volname: scalar string tensor (note LoadPatchCoordinates returns a
+               1-vector instead).
+      offset_scale_map: map of string volnames to (offset, scale) pairs.
+      default_offset: used if volname is not in offset_scale_map.
+      default_scale: used if volname is not in offset_scale_map.
+      name: scope name.
+
+    Returns:
+      Tuple of offset, scale scalar float32 tensors.
+    """
+
+    def _get_offset_scale(volname):
+        if volname in offset_scale_map:
+            offset, scale = offset_scale_map[volname]
+        else:
+            offset = default_offset
+            scale = default_scale
+        return np.float32(offset), np.float32(scale)
+
+    offset, scale = tf.compat.v1.py_func(
+        _get_offset_scale, [volname], [tf.float32, tf.float32],
+        stateful=False,
+        name=name)
+    offset.set_shape([])
+    scale.set_shape([])
+    return offset, scale
