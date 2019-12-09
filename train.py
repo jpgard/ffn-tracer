@@ -100,6 +100,11 @@ def define_data_input():
     loss_weights = transform_axes(loss_weights)
 
     # Normalize image data.
+    # TODO(jpgard): the _get_offset_and_scale_map() can be refactored to use the new
+    #  tf.py_function as suggested in the deprecation warning which arises when the
+    #  train.py script is run; the image_offset_scale_map command line can be
+    #  deprecated as well (per-volume mean/std is already being performed, elimintating
+    #  the need for this function) which simplifies the function considerably.
     patch = offset_and_scale_patches(
         patch, volname[0],
         offset_scale_map=_get_offset_and_scale_map(),
@@ -133,6 +138,7 @@ def main(argv):
     """
 
     load_data_ops = define_data_input()
+
 
     # TODO(jpgard): continue following logic of ffn training here; see ffn train.py L#624
 
