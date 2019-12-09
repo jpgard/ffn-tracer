@@ -14,27 +14,55 @@ import os
 from fftracer.utils import features
 from fftracer import utils
 from fftracer.training import input
-from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, _get_reflectable_axes
+from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
+    _get_reflectable_axes
 from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training import augmentation
 import argparse
 import tensorflow as tf
 import numpy as np
+from absl import flags
+from absl import app
 
 
-def define_data_input(tfrecord_dir, batch_size, coordinate_dir, permutable_axes=[0,1],
-                      reflectable_axes=[0,1],
-                      image_offset_scale_map=None):
+FLAGS = flags.FLAGS
+
+
+flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of "
+                                          "labeled input data volumes")
+flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
+                                            "patch coodinates")
+flags.DEFINE_string("out_dir", None, "directory to save to")
+
+flags.DEFINE_integer("batch_size", 8, "batch size")
+flags.DEFINE_integer("epochs", 1, "training epochs")
+flags.DEFINE_boolean("debug", False, "produces debugging output")
+flags.DEFINE_list('image_offset_scale_map', None,
+                  'Optional per-volume specification of mean and stddev. '
+                  'Every entry in the list is a colon-separated tuple of: '
+                  'volume_label, offset, scale.')
+flags.DEFINE_list('permutable_axes', ['1', '2'],
+                  'List of integers equal to a subset of [0, 1, 2] specifying '
+                  'which of the [z, y, x] axes, respectively, may be permuted '
+                  'in order to augment the training data.')
+
+flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
+                  'List of integers equal to a subset of [0, 1, 2] specifying '
+                  'which of the [z, y, x] axes, respectively, may be reflected '
+                  'in order to augment the training data.')
+
+
+def define_data_input():
     """Adds TF ops to load input data.
     Mimics structure of function of the same name in ffn.train.py
     """
-    permutable_axes = np.array(permutable_axes, dtype=np.int32)
-    reflectable_axes = np.array(reflectable_axes, dtype=np.int32)
+    permutable_axes = np.array(FLAGS.permutable_axes, dtype=np.int32)
+    reflectable_axes = np.array(FLAGS.reflectable_axes, dtype=np.int32)
 
-    volume_map = input.load_tfrecord_dataset(tfrecord_dir,
+    volume_map = input.load_tfrecord_dataset(FLAGS.tfrecord_dir,
                                              utils.features.FEATURE_SCHEMA)
-    model = FFNTracerModel(deltas=[8, 8, 0], batch_size=batch_size)
+    model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size)
     volume_name = "507727402"
 
     # Fetch sizes of images and labels
@@ -44,7 +72,7 @@ def define_data_input(tfrecord_dir, batch_size, coordinate_dir, permutable_axes=
 
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
-    coord, volname = input.load_patch_coordinates(coordinate_dir)
+    coord, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
     labels = input.load_from_numpylike_2d(coord, volname, shape=[1, 49, 49],
                                           volume_map=volume_map,
                                           feature_name='image_label')
@@ -59,7 +87,7 @@ def define_data_input(tfrecord_dir, batch_size, coordinate_dir, permutable_axes=
     image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
 
     if ((image_stddev is None or image_mean is None) and
-            not image_offset_scale_map):
+            not FLAGS.image_offset_scale_map):
         raise ValueError('--image_mean, --image_stddev or --image_offset_scale_map '
                          'need to be defined')
 
@@ -80,16 +108,14 @@ def define_data_input(tfrecord_dir, batch_size, coordinate_dir, permutable_axes=
 
     # Create a batches of examples corresponding to the patches, labels, and loss weights.
 
-    patches = tf.data.Dataset.from_tensors(patch).batch(batch_size)
-    labels = tf.data.Dataset.from_tensors(labels).batch(batch_size)
-    loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(batch_size)
+    patches = tf.data.Dataset.from_tensors(patch).batch(FLAGS.batch_size)
+    labels = tf.data.Dataset.from_tensors(labels).batch(FLAGS.batch_size)
+    loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(FLAGS.batch_size)
 
     return patches, labels, loss_weights, coord, volname
 
 
-
-def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
-         image_offset_scale_map=False):
+def main(argv):
     """
 
     :param tfrecord_dir:
@@ -106,23 +132,10 @@ def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
     :return:
     """
 
-    load_data_ops = define_data_input(tfrecord_dir, batch_size, coordinate_dir)
+    load_data_ops = define_data_input()
 
     # TODO(jpgard): continue following logic of ffn training here; see ffn train.py L#624
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--tfrecord_dir", help="directory containng tfrecord files of "
-                                               "labeled input data volumes",
-                        required=True)
-    parser.add_argument("--coordinate_dir", help="directory containng tfrecord files of "
-                                                 "patch coodinates",
-                        required=True)
-    parser.add_argument("--out_dir", help="directory to save to", required=True)
-    parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--debug", action="store_true", default=False)
-    parser.add_argument("--image_offset_scale_map", default=None)
-    args = parser.parse_args()
-    main(**vars(args))
+    app.run(main)
