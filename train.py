@@ -23,29 +23,11 @@ import tensorflow as tf
 import numpy as np
 
 
-def define_data_input(model, queue_batch=None):
-    # todo(jpgard): move below logic to here to mimic structure of function of the same
-#  name in ffn.train.py
-
-
-
-def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
-         image_offset_scale_map=False, permutable_axes=[0,1],
-         reflectable_axes=[0,1]):
-    """
-
-    :param tfrecord_dir:
-    :param out_dir:
-    :param debug:
-    :param coordinate_dir:
-    :param batch_size:
-    :param epochs:
-    :param image_offset_scale_map:
-    permutable_axes: 1-D int32 numpy array specifying the axes that may be
-      permuted.
-    reflectable_axes: 1-D int32 numpy array specifying the axes that may be
-      reflected.
-    :return:
+def define_data_input(tfrecord_dir, batch_size, coordinate_dir, permutable_axes=[0,1],
+                      reflectable_axes=[0,1],
+                      image_offset_scale_map=None):
+    """Adds TF ops to load input data.
+    Mimics structure of function of the same name in ffn.train.py
     """
     permutable_axes = np.array(permutable_axes, dtype=np.int32)
     reflectable_axes = np.array(reflectable_axes, dtype=np.int32)
@@ -56,16 +38,9 @@ def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
     volume_name = "507727402"
 
     # Fetch sizes of images and labels
-
+    # todo(jpgard): pass these to load_from_numpylike_2d as shape parameter
     label_size = features.get_image_shape(volume_map, volume_name).numpy()
     image_size = features.get_image_shape(volume_map, volume_name).numpy()
-
-    # TODO(jpgard): verify that this is the size of the input images, not of the
-    #  training frames
-    label_radii = (label_size // 2).tolist()
-    label_size = label_size.tolist()
-    image_radii = (image_size // 2).tolist()
-    image_size = image_size.tolist()
 
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
@@ -80,7 +55,7 @@ def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
                                          volume_map=volume_map, feature_name='image_raw')
     data_shape = [1, 49, 49, 1]  # [batch_size, x, y, z]
 
-    # todo(jpgard): fetch image_stddev and image_mean
+    # fetch image_stddev and image_mean
     image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
 
     if ((image_stddev is None or image_mean is None) and
@@ -108,6 +83,30 @@ def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
     patches = tf.data.Dataset.from_tensors(patch).batch(batch_size)
     labels = tf.data.Dataset.from_tensors(labels).batch(batch_size)
     loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(batch_size)
+
+    return patches, labels, loss_weights, coord, volname
+
+
+
+def main(tfrecord_dir, out_dir, debug, coordinate_dir, batch_size, epochs,
+         image_offset_scale_map=False):
+    """
+
+    :param tfrecord_dir:
+    :param out_dir:
+    :param debug:
+    :param coordinate_dir:
+    :param batch_size:
+    :param epochs:
+    :param image_offset_scale_map:
+    permutable_axes: 1-D int32 numpy array specifying the axes that may be
+      permuted.
+    reflectable_axes: 1-D int32 numpy array specifying the axes that may be
+      reflected.
+    :return:
+    """
+
+    load_data_ops = define_data_input(tfrecord_dir, batch_size, coordinate_dir)
 
     # TODO(jpgard): continue following logic of ffn training here; see ffn train.py L#624
 
