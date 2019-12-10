@@ -29,7 +29,7 @@ FEATURE_SCHEMA = {
     'seed_x': tf.io.FixedLenFeature(1, tf.int64),
     'seed_y': tf.io.FixedLenFeature(1, tf.int64),
     'seed_z': tf.io.FixedLenFeature(1, tf.int64),
-    'image_raw': tf.io.VarLenFeature(tf.int64),
+    'image_raw': tf.io.VarLenFeature(tf.float32),
     'image_label': tf.io.VarLenFeature(tf.float32),
 }
 
