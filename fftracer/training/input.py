@@ -84,24 +84,17 @@ def load_patch_coordinates(coordinate_dir):
     tfrecord_files = [os.path.join(coordinate_dir, x)
                       for x in os.listdir(coordinate_dir)
                       if x.endswith(utils.TFRECORD)]
-    dataset = tf.data.TFRecordDataset(
-        tfrecord_files,
-        compression_type='GZIP')
-    record = dataset.__iter__().next()
 
-    feature_description = {
-        "center": tf.io.FixedLenFeature(shape=[1, 3], dtype=tf.int64),
-        "label_volume_name": tf.io.FixedLenFeature(shape=[1], dtype=tf.string),
-    }
-
-    def _parse_function(example_proto):
-        # Parse the input `tf.Example` proto using the dictionary above.
-        return tf.io.parse_single_example(example_proto, feature_description)
-
-    parsed_example = _parse_function(record)
-
-    coord = parsed_example['center']
-    volname = parsed_example['label_volume_name']
+    record_options = tf.python_io.TFRecordOptions(
+        tf.python_io.TFRecordCompressionType.GZIP)
+    filename_queue = tf.train.string_input_producer(tfrecord_files, shuffle=True)
+    keys, protos = tf.TFRecordReader(options=record_options).read(filename_queue)
+    examples = tf.parse_single_example(protos, features=dict(
+        center=tf.FixedLenFeature(shape=[1, 3], dtype=tf.int64),
+        label_volume_name=tf.FixedLenFeature(shape=[1], dtype=tf.string),
+    ))
+    coord = examples['center']
+    volname = examples['label_volume_name']
     return (coord, volname)
 
 
