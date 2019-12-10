@@ -52,6 +52,8 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
 
+flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
+
 
 def define_data_input():
     """Adds TF ops to load input data.
@@ -62,26 +64,23 @@ def define_data_input():
 
     volume_map = input.load_tfrecord_dataset(FLAGS.tfrecord_dir,
                                              utils.features.FEATURE_SCHEMA)
-    model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size)
     volume_name = "507727402"
 
-    # Fetch sizes of images and labels
-    # todo(jpgard): pass these to load_from_numpylike_2d as shape parameter
+    # Fetch sizes of images and labels (full uncropped image size)
     label_size = features.get_image_shape(volume_map, volume_name).numpy()
     image_size = features.get_image_shape(volume_map, volume_name).numpy()
 
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
     coord, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
-    labels = input.load_from_numpylike_2d(coord, volname, shape=[1, 49, 49],
+    labels = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
                                           volume_map=volume_map,
                                           feature_name='image_label')
-    label_shape = [1, 49, 49, 1]  # [batch_size, x, y, z]
+    label_shape = [1] + FLAGS.fov_size[::-1]  # [batch_size, x, y, z]
     loss_weights = tf.constant(np.ones(label_shape, dtype=np.float32))
 
-    patch = input.load_from_numpylike_2d(coord, volname, shape=[1, 49, 49],
+    patch = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
                                          volume_map=volume_map, feature_name='image_raw')
-    data_shape = [1, 49, 49, 1]  # [batch_size, x, y, z]
 
     # fetch image_stddev and image_mean
     image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
@@ -120,27 +119,32 @@ def define_data_input():
     return patches, labels, loss_weights, coord, volname
 
 
+def prepare_ffn(model):
+  """Creates the TF graph for an FFN.
+
+  Ported from ffn.train.py.
+  """
+  shape = [FLAGS.batch_size] + list(model.pred_mask_size[::-1]) + [1]
+
+  model.labels = tf.placeholder(tf.float32, shape, name='labels')
+  model.loss_weights = tf.placeholder(tf.float32, shape, name='loss_weights')
+  model.define_tf_graph()
+
+
 def main(argv):
-    """
-
-    :param tfrecord_dir:
-    :param out_dir:
-    :param debug:
-    :param coordinate_dir:
-    :param batch_size:
-    :param epochs:
-    :param image_offset_scale_map:
-    permutable_axes: 1-D int32 numpy array specifying the axes that may be
-      permuted.
-    reflectable_axes: 1-D int32 numpy array specifying the axes that may be
-      reflected.
-    :return:
-    """
-
+    model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
+                           fov_size=FLAGS.fov_size[::-1])
     load_data_ops = define_data_input()
+    # TODO(jpgard): either re-implement the existing logic in tf1.x, or continue
+    #  following logic of ffn training here (this will require re-implementing almost
+    #  all of their operations in tf2.x; see ffn train.py L#624. I think the best
+    #  choice is to instead move back to 1.x; this will require some small changes to
+    #  my code but avoids the risk of breaking their models or introducing any mistakes
+    #  in the implementation.
+    prepare_ffn(model)
+    import ipdb;
+    ipdb.set_trace()
 
-
-    # TODO(jpgard): continue following logic of ffn training here; see ffn train.py L#624
 
 
 if __name__ == "__main__":
