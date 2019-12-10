@@ -66,22 +66,20 @@ def define_data_input():
                                              utils.features.FEATURE_SCHEMA)
     volume_name = "507727402"
 
-    # Fetch sizes of images and labels (full uncropped image size)
-    label_size = features.get_image_shape(volume_map, volume_name).numpy()
-    image_size = features.get_image_shape(volume_map, volume_name).numpy()
-
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
     coord, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
     labels = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
                                           volume_map=volume_map,
                                           feature_name='image_label')
+    # give labels shape [batch_size, x, y, z]
     label_shape = [1] + FLAGS.fov_size[::-1]  # [batch_size, x, y, z]
+    labels = tf.reshape(labels, label_shape)
+
     loss_weights = tf.constant(np.ones(label_shape, dtype=np.float32))
 
     patch = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
                                          volume_map=volume_map, feature_name='image_raw')
-
     # fetch image_stddev and image_mean
     image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
 
@@ -99,11 +97,6 @@ def define_data_input():
     loss_weights = transform_axes(loss_weights)
 
     # Normalize image data.
-    # TODO(jpgard): the _get_offset_and_scale_map() can be refactored to use the new
-    #  tf.py_function as suggested in the deprecation warning which arises when the
-    #  train.py script is run; the image_offset_scale_map command line can be
-    #  deprecated as well (per-volume mean/std is already being performed, elimintating
-    #  the need for this function) which simplifies the function considerably.
     patch = offset_and_scale_patches(
         patch, volname[0],
         offset_scale_map=_get_offset_and_scale_map(),
