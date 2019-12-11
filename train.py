@@ -18,7 +18,8 @@ from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
     _get_reflectable_axes
 from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
-from fftracer.training import augmentation
+# from fftracer.training import augmentation
+from ffn.training import augmentation
 import argparse
 import tensorflow as tf
 import numpy as np
@@ -55,7 +56,7 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
 flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 
 
-def define_data_input():
+def define_data_input(queue_batch=None):
     """Adds TF ops to load input data.
     Mimics structure of function of the same name in ffn.train.py
     """
@@ -80,6 +81,9 @@ def define_data_input():
 
     patch = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
                                          volume_map=volume_map, feature_name='image_raw')
+    data_shape = label_shape
+    patch = tf.reshape(patch, shape=data_shape)
+
     # fetch image_stddev and image_mean
     image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
 
@@ -100,14 +104,36 @@ def define_data_input():
     patch = offset_and_scale_patches(
         patch, volname[0],
         offset_scale_map=_get_offset_and_scale_map(),
-        default_offset=image_mean.numpy(),
-        default_scale=image_stddev.numpy())
+        default_offset=image_mean,
+        default_scale=image_stddev)
+
+
 
     # Create a batches of examples corresponding to the patches, labels, and loss weights.
 
     patches = tf.data.Dataset.from_tensors(patch).batch(FLAGS.batch_size)
     labels = tf.data.Dataset.from_tensors(labels).batch(FLAGS.batch_size)
     loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(FLAGS.batch_size)
+
+    ## Previous (broken) code to generate batches from ffn.train.py; this is likely
+    ## broken due to updates to the API since tf 1.4 which break backward compatibility.
+
+    ## Set the shapes for all tensors; must have predefined shape
+    # patch.set_shape(data_shape)
+    # labels.set_shape(label_shape)
+    # loss_weights.set_shape(label_shape)
+
+    ## Create a batch of examples. Note that any TF operation before this line
+    ## will be hidden behind a queue, so expensive/slow ops can take advantage
+    ## of multithreading.
+
+    # patches, labels, loss_weights = tf.train.shuffle_batch(
+    #     [patch, labels, loss_weights], queue_batch,
+    #     num_threads=max(1, FLAGS.batch_size // 2),
+    #     capacity=32 * FLAGS.batch_size,
+    #     min_after_dequeue=4 * FLAGS.batch_size,
+    #     enqueue_many=True
+    # )
 
     return patches, labels, loss_weights, coord, volname
 
@@ -128,15 +154,7 @@ def main(argv):
     model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
                            fov_size=FLAGS.fov_size[::-1])
     load_data_ops = define_data_input()
-    # TODO(jpgard): either re-implement the existing logic in tf1.x, or continue
-    #  following logic of ffn training here (this will require re-implementing almost
-    #  all of their operations in tf2.x; see ffn train.py L#624. I think the best
-    #  choice is to instead move back to 1.x; this will require some small changes to
-    #  my code but avoids the risk of breaking their models or introducing any mistakes
-    #  in the implementation.
     prepare_ffn(model)
-    import ipdb;
-    ipdb.set_trace()
 
 
 
