@@ -155,6 +155,7 @@ def main(argv):
                            fov_size=FLAGS.fov_size[::-1])
     load_data_ops = define_data_input()
     prepare_ffn(model)
+    # TODO(jpgard): now train the model.
 
 
 
