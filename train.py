@@ -46,10 +46,6 @@ flags.DEFINE_string("out_dir", None, "directory to save to")
 
 flags.DEFINE_integer("epochs", 1, "training epochs")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
-flags.DEFINE_list('image_offset_scale_map', None,
-                  'Optional per-volume specification of mean and stddev. '
-                  'Every entry in the list is a colon-separated tuple of: '
-                  'volume_label, offset, scale.')
 flags.DEFINE_list('permutable_axes', ['1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be permuted '
@@ -93,7 +89,26 @@ flags.DEFINE_integer('fov_moves', 1,
 flags.DEFINE_boolean('shuffle_moves', True,
                      'Whether to randomize the order of the moves used by the '
                      'network with the "fixed" policy.')
+flags.DEFINE_list('image_offset_scale_map', None,
+                  'Optional per-volume specification of mean and stddev. '
+                  'Every entry in the list is a colon-separated tuple of: '
+                  'volume_label, offset, scale.')
+flags.DEFINE_float('image_mean', None,
+                   'Mean image intensity to use for input normalization.')
+flags.DEFINE_float('image_stddev', None,
+                   'Image intensity standard deviation to use for input '
+                   'normalization.')
 
+
+def _get_offset_and_scale_map():
+    if not FLAGS.image_offset_scale_map:
+        return {}
+    ret = {}
+    for vol_def in FLAGS.image_offset_scale_map:
+        vol_name, offset, scale = vol_def.split(':')
+        ret[vol_name] = float(offset), float(scale)
+
+    return ret
 
 
 def fov_moves():
@@ -254,6 +269,7 @@ def get_batch(load_example, eval_tracker, model, batch_size, get_offsets):
 
       where 'b' is the batch_size.
     """
+
     # TODO(jpgard): modify this function to yield Tensors containing batched data;
     #  currently it returns DatasetV1Adaptor instead.
     def _batch(iterable):
@@ -332,9 +348,9 @@ def define_data_input(queue_batch=None):
     patch = tf.reshape(patch, shape=data_shape)
 
     # fetch image_stddev and image_mean
-    image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
+    # image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
 
-    if ((image_stddev is None or image_mean is None) and
+    if ((FLAGS.image_stddev is None or FLAGS.image_mean is None) and
             not FLAGS.image_offset_scale_map):
         raise ValueError('--image_mean, --image_stddev or --image_offset_scale_map '
                          'need to be defined')
@@ -346,27 +362,20 @@ def define_data_input(queue_batch=None):
     labels = transform_axes(labels)
     patch = transform_axes(patch)
     loss_weights = transform_axes(loss_weights)
-
     # Normalize image data.
     patch = offset_and_scale_patches(
         patch, volname[0],
         offset_scale_map=_get_offset_and_scale_map(),
-        default_offset=image_mean,
-        default_scale=image_stddev)
+        default_offset=FLAGS.image_mean,
+        default_scale=FLAGS.image_stddev)
 
     # Create a batches of examples corresponding to the patches, labels, and loss weights.
-
     patches = tf.data.Dataset.from_tensors(patch).batch(FLAGS.batch_size)
     labels = tf.data.Dataset.from_tensors(labels).batch(FLAGS.batch_size)
     loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(FLAGS.batch_size)
 
     ## Previous (broken) code to generate batches from ffn.train.py; this is likely
     ## broken due to updates to the API since tf 1.4 which break backward compatibility.
-
-    ## Set the shapes for all tensors; must have predefined shape
-    # patch.set_shape(data_shape)
-    # labels.set_shape(label_shape)
-    # loss_weights.set_shape(label_shape)
 
     ## Create a batch of examples. Note that any TF operation before this line
     ## will be hidden behind a queue, so expensive/slow ops can take advantage
@@ -380,7 +389,14 @@ def define_data_input(queue_batch=None):
     #     enqueue_many=True
     # )
 
-    return patches, labels, loss_weights, coord, volname
+    # patches, labels, loss_weights should all be of type Tensor, so fetch a single
+    # element from each.
+
+    return (tf.data.experimental.get_single_element(patches),
+            tf.data.experimental.get_single_element(labels),
+            tf.data.experimental.get_single_element(loss_weights),
+            coord,
+            volname)
 
 
 def prepare_ffn(model):
@@ -452,6 +468,7 @@ def main(argv):
                     'fixed': partial(fixed_offsets, fov_shifts=fov_shifts),
                     'max_pred_moves': max_pred_offsets
                 }
+                # import ipdb;ipdb.set_trace()
                 batch_it = get_batch(lambda: sess.run(load_data_ops),
                                      eval_tracker, model, FLAGS.batch_size,
                                      policy_map[FLAGS.fov_policy])
