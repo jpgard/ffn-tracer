@@ -6,7 +6,8 @@ data loading for mozak/allen institute imaging.
 
 usage:
 python train.py --tfrecord_dir ./data/tfrecords \
-    --out_dir . --coordinate_dir ./data/coords
+    --out_dir . --coordinate_dir ./data/coords \
+    --image_offset_scale_map "507727402:78.63:20.44"
 """
 
 import argparse
@@ -98,6 +99,10 @@ flags.DEFINE_float('image_mean', None,
 flags.DEFINE_float('image_stddev', None,
                    'Image intensity standard deviation to use for input '
                    'normalization.')
+
+# Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
+# impossible to parse.
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 def _get_offset_and_scale_map():
