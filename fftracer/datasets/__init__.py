@@ -53,6 +53,10 @@ class PairedDataset2d(ABC):
     def write_tfrecord(self, out_dir):
         """write the dataset to a tfrecord file."""
 
+    def fetch_mean_and_std(self):
+        """Fetch the mean and std for use as offsets during training."""
+        return self.x.mean(), self.x.std()
+
 
 
 class SeedDataset:
