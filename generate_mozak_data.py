@@ -13,7 +13,7 @@ python generate_mozak_data.py \
 
 import argparse
 from fftracer.datasets.mozak import MozakDataset2d
-from fftracer.datasets import SeedDataset
+from fftracer.datasets import SeedDataset, offset_dict_to_csv
 import tensorflow as tf
 import os.path as osp
 
@@ -21,6 +21,7 @@ import os.path as osp
 def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, img_dir=None):
     seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
+    neuron_offsets = dict()
     for dataset_id in dataset_ids:
         seed = seeds.get_seed_loc(dataset_id)
         dset = MozakDataset2d(dataset_id, seed)
@@ -30,6 +31,10 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, img_dir=No
         dset.write_tfrecord(out_dir)
         # write training coordinates (this does work of ffn's build_coordinates.py)
         dset.generate_training_coordinates(out_dir, num_training_coords)
+        # save the offets
+        neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
+    # write offsets to csv
+    offset_dict_to_csv(neuron_offsets, fp=osp.join(out_dir, "offsets.csv"))
     return
 
 

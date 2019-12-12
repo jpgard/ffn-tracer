@@ -12,6 +12,14 @@ from collections import namedtuple
 Seed = namedtuple('Seed', ['x', 'y', 'z'])
 
 
+def offset_dict_to_csv(offset_dict, fp):
+    """Write a dictionary with {dataset_id: (mean, std)} structure to a csv at fp. """
+    df = pd.DataFrame.from_dict(offset_dict, orient="index").reset_index()
+    df.columns = ["dataset_id", "mean", "std"]
+    import ipdb;ipdb.set_trace()
+    df.to_csv(fp, index=False)
+
+
 class PairedDataset2d(ABC):
     """A dataset consisting of an image (x) and pixel-wise labels (y)."""
 
@@ -20,8 +28,8 @@ class PairedDataset2d(ABC):
         self.x = None  # the input grayscale image
         self.y = None  # the pixel-wise labels for the image
         self.seed = seed
-        self.pom_pad = 0.05 # value by which zero labels are increased/1 labels are
-        # decreased
+        # pom_pad is the value by which zero labels are increased/1 labels are decreased
+        self.pom_pad = 0.05
 
     @abstractmethod
     def load_data(self, gs_dir, data_dir):
