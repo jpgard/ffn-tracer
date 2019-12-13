@@ -72,20 +72,6 @@ def load_patch_coordinates(coordinate_dir):
     return (coord, volname)
 
 
-def get_dense_array_from_element(element, feature_name, shape):
-    """Fetch the sparse array for feature_name, densify, and reshape."""
-    volume_sparse = element[feature_name]
-    volume = tf.sparse.to_dense(volume_sparse)
-    volume = tf.reshape(volume, shape)  # volume now has shape (X,Y)
-    return volume
-
-
-def get_shape_xy_from_element(element):
-    shape_xy = [element['shape_x'].numpy().tolist()[0],
-                element['shape_y'].numpy().tolist()[0]]
-    return shape_xy
-
-
 def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=None):
     """
     Load data from Numpy-like volumes.
