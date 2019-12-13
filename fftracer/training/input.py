@@ -121,7 +121,7 @@ def get_shape_xy_from_element(element):
     return shape_xy
 
 
-def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature_name, name=None):
+def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=None):
     """
     Load data from Numpy-like volumes.
 
@@ -134,7 +134,6 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature
     :param shape: a 3-sequence giving the ZYX shape of the data to load (where Z is 1).
     :param volume_map: a dictionary mapping volume names to volume objects.  See above
         for API requirements of the Numpy-like volume objects.
-    :param feature_name: the name of the feature to grab from the volume.
     :param name: the op name.
     :return: Tensor result of reading data of shape [1] + shape[::-1] + [num_channels]
     from given center coordinate and volume name.  Dtype matches input volumes.
@@ -144,11 +143,8 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature
 
     def _load_from_numpylike(coord, volname):
         """Load from coord and volname, handling 3d or 4d volumes."""
-        volume_data = volume_map[volname.decode('ascii')]
-        volume = tf.sparse.to_dense(volume_data[feature_name])
-        shape_xy = tf.concat([[volume_data['shape_x'], volume_data['shape_y']]])
-        volume = tf.reshape(volume, shape_xy)
-        volume = tf.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
+        volume = volume_map[volname.decode('ascii')]
+        volume = np.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
         starts = np.array(coord) - start_offset
         slc = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
         # if volume.ndim == 4:
@@ -159,10 +155,10 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature
         # if data.ndim == 4:
         #     data = np.rollaxis(data, 0, start=4)
         # else:
-        data = np.expand_dims(data, 4) # shape (X,Y,Z, n_channels)
+        data = np.expand_dims(data, 4)  # shape (X,Y,Z, n_channels)
 
-        # Add flat batch dim and return.
-        data = np.expand_dims(data, 0) # shape (batch_size, X, Y, Z, n_channels)
+        # Add flat batch dim and return shape (batch_size, X, Y, Z, n_channels)
+        data = np.expand_dims(data, 0).astype(np.float32)
         return data
 
     with tf.name_scope(name, 'LoadFromNumpyLike',
@@ -170,7 +166,6 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature
         # For historical reasons these have extra flat dims.
         coordinates = tf.squeeze(coordinates, axis=0)
         volume_names = tf.squeeze(volume_names, axis=0)
-        import ipdb;ipdb.set_trace()
         loaded = tf.py_func(
             _load_from_numpylike, [coordinates, volume_names], [tf.float32],
             name=scope)[0]
