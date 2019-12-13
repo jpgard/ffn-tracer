@@ -10,12 +10,10 @@ python train.py --tfrecord_dir ./data/tfrecords \
     --image_offset_scale_map "507727402:78.63:20.44"
 """
 
-import argparse
 from collections import deque
 from functools import partial
 import itertools
 import logging
-import os
 import random
 import time
 
@@ -27,8 +25,6 @@ from ffn.training import augmentation, mask
 from scipy.special import expit, logit
 import six
 
-from fftracer.utils import features
-from fftracer import utils
 from fftracer.training import input
 from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
     _get_reflectable_axes
@@ -397,7 +393,6 @@ def prepare_ffn(model):
     Ported from ffn.train.py.
     """
     shape = [FLAGS.batch_size] + list(model.pred_mask_size[::-1]) + [1]
-
     model.labels = tf.placeholder(tf.float32, shape, name='labels')
     model.loss_weights = tf.placeholder(tf.float32, shape, name='loss_weights')
     model.define_tf_graph()
@@ -415,7 +410,6 @@ def main(argv):
 
             eval_tracker = EvalTracker(eval_shape_zyx)
             load_data_ops = define_data_input(model)
-            import ipdb;ipdb.set_trace()
             prepare_ffn(model)
             merge_summaries_op = tf.summary.merge_all()
 
@@ -461,7 +455,6 @@ def main(argv):
                     'fixed': partial(fixed_offsets, fov_shifts=fov_shifts),
                     'max_pred_moves': max_pred_offsets
                 }
-                # import ipdb;ipdb.set_trace()
                 batch_it = get_batch(lambda: sess.run(load_data_ops),
                                      eval_tracker, model, FLAGS.batch_size,
                                      policy_map[FLAGS.fov_policy])
