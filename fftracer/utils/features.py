@@ -1,9 +1,6 @@
 """Feature functions for working with Tensorflow data."""
 
 import tensorflow as tf
-from fftracer.training.input import get_dense_array_from_element, \
-    get_shape_xy_from_element
-
 
 # The following functions can be used to convert a value to a type compatible
 # with tf.Example.
