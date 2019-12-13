@@ -9,33 +9,42 @@ from ffn.utils import bounding_box
 import numpy as np
 
 
-def load_tfrecord_dataset(tfrecord_dir, feature_schema):
+def load_img_and_label_maps_from_tfrecords(tfrecord_dir):
     """
-    Load and parse the dataset in tfrecord files.
+    Load the dataset in tfrecord files, returning maps with {id:image} and {id:labels}.
+
     :param tfrecord_files: directory of files containg tfrecords
-    :param feature_schema: dict of {feature_name, tf.io.<feature_type>}
-    :return: a dictionary mapping dataset_ids to datasets, which are parsed
+    :return: two dictionaries, each mapping dataset_ids to numpy arrays, which are parsed
     according to the specified feature schema.
     """
     tfrecord_files = [os.path.join(tfrecord_dir, x)
                       for x in os.listdir(tfrecord_dir)
                       if x.endswith(utils.TFRECORD)]
-    volume_map = dict()
-    for file in tfrecord_files:
-        basename = os.path.basename(file)
+    label_volume_map = dict()
+    image_volume_map = dict()
+    for tfr_file in tfrecord_files:
+        record_iterator = tf.python_io.tf_record_iterator(path=tfr_file)
+        basename = os.path.basename(tfr_file)
         dataset_id = os.path.splitext(basename)[0]
-        raw_image_dataset = tf.data.TFRecordDataset(tfrecord_files)
+        for string_record in record_iterator:
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
 
-        def _parse_image_function(example_proto):
-            # Parse the input tf.Example proto using the dictionary above.
-            return tf.io.parse_single_example(example_proto, feature_schema)
+            shape_y = int(example.features.feature['shape_y'].int64_list.value[0])
 
-        parsed_image_dataset = raw_image_dataset.map(_parse_image_function)
-        volume_map[dataset_id] = parsed_image_dataset
-        # TODO(jpgard): verify this is being parsed correctly; the dataset should
-        #  contain instances of examples which contain Tensors that can be access for
-        #  training
-    return volume_map
+            shape_x = int(example.features.feature['shape_x'].int64_list.value[0])
+
+            img_1d = example.features.feature['image_raw'].float_list.value
+
+            label_1d = example.features.feature['image_label'].float_list.value
+
+            img = np.array(img_1d).reshape((shape_y, shape_x))
+            label = np.array(label_1d).reshape((shape_y, shape_x))
+
+            image_volume_map[dataset_id] = img
+            label_volume_map[dataset_id] = label
+
+    return image_volume_map, label_volume_map
 
 
 def get_batch(dataset, parse_example_fn):
@@ -161,6 +170,7 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, feature
         # For historical reasons these have extra flat dims.
         coordinates = tf.squeeze(coordinates, axis=0)
         volume_names = tf.squeeze(volume_names, axis=0)
+        import ipdb;ipdb.set_trace()
         loaded = tf.py_func(
             _load_from_numpylike, [coordinates, volume_names], [tf.float32],
             name=scope)[0]
@@ -220,7 +230,6 @@ def get_offset_scale(volname,
     Returns:
       Tuple of offset, scale scalar float32 tensors.
     """
-
     def _get_offset_scale(volname):
         if volname in offset_scale_map:
             offset, scale = offset_scale_map[volname]
