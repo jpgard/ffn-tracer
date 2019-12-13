@@ -63,7 +63,7 @@ class MozakDataset2d(PairedDataset2d):
             'seed_y': _int64_feature([self.seed.y]),
             'seed_z': _int64_feature([self.seed.z]),
             'image_raw': tf.train.Feature(
-                int64_list=tf.train.Int64List(value=self.x.flatten().tolist())
+                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
             ),
             'image_label': tf.train.Feature(
                 float_list=tf.train.FloatList(value=self.y.flatten().tolist())
