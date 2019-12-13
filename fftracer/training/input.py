@@ -47,41 +47,6 @@ def load_img_and_label_maps_from_tfrecords(tfrecord_dir):
     return image_volume_map, label_volume_map
 
 
-def get_batch(dataset, parse_example_fn):
-    """
-    Create a batch of training instances from a tf.Example of a complete neuron.
-    :param dataset: a dataset containing training examples.
-    :param parse_example_fn: callable which returns a dict with keys "x", "y", "seed".
-    Yields:
-        tuple of:
-          seed array, shape [b, z, y, x, 1]
-          image array, shape [b, z, y, x, 1]
-          label array, shape [b, z, y, x, 1]
-
-        where 'b' is the batch_size.
-    """
-    for element in dataset:
-        parsed_example = parse_example_fn(element)
-    return
-
-
-def parse_example(example: dict):
-    """
-    Parse an example in the default format.
-    :param example: an element of a tensorflow.python.data.ops.dataset_ops.MapDataset
-    :return: dict with keys "x", "y", "seed" with corresponding Tensors.
-    """
-    shape = tf.concat([example['shape_x'], example['shape_y']], axis=-1)
-    image_raw = tf.reshape(tf.sparse.to_dense(example['image_raw']), shape)
-    image_label = tf.reshape(tf.sparse.to_dense(example['image_label']), shape)
-    seed = tf.concat([example['seed_x'], example['seed_y'], example['seed_z']], axis=-1)
-    #     to see images:
-    #     print("[DEBUG] saving debug images of raw image and trace")
-    #     skimage.io.imsave("tfrecord_image_raw.jpg", image_raw.numpy())
-    #     skimage.io.imsave("tfrecord_image_label.jpg", image_label.numpy())
-    return {"x": image_raw, "y": image_label, "seed": seed}
-
-
 def load_patch_coordinates(coordinate_dir):
     """
     Loads coordinates and volume names from file of coordinates.
