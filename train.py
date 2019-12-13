@@ -324,36 +324,37 @@ def run_training_step(sess, model, fetch_summary, feed_dict):
     return prediction, step, summ
 
 
-def define_data_input(queue_batch=None):
+def define_data_input(model, queue_batch=None):
     """Adds TF ops to load input data.
     Mimics structure of function of the same name in ffn.train.py
     """
     permutable_axes = np.array(FLAGS.permutable_axes, dtype=np.int32)
     reflectable_axes = np.array(FLAGS.reflectable_axes, dtype=np.int32)
 
-    volume_map = input.load_tfrecord_dataset(FLAGS.tfrecord_dir,
-                                             utils.features.FEATURE_SCHEMA)
-    volume_name = "507727402"
+    image_volume_map, label_volume_map = input.load_img_and_label_maps_from_tfrecords(
+        FLAGS.tfrecord_dir)
+    # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
+    # numpy broadcasting when intended behavior is concatenation
+    label_size = train_labels_size(model).tolist()
+    image_size = train_image_size(model).tolist()
 
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
     coord, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
-    labels = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
-                                          volume_map=volume_map,
-                                          feature_name='image_label')
-    # give labels shape [batch_size, x, y, z]
-    label_shape = [1] + FLAGS.fov_size[::-1]  # [batch_size, x, y, z]
+    labels = input.load_from_numpylike_2d(coord, volname, shape=label_size,
+                                          volume_map=label_volume_map)
+
+    # Give labels shape [batch_size, z, y, x, n_channels]
+    label_shape = [1] + label_size[::-1] + [1]
     labels = tf.reshape(labels, label_shape)
 
     loss_weights = tf.constant(np.ones(label_shape, dtype=np.float32))
 
-    patch = input.load_from_numpylike_2d(coord, volname, shape=FLAGS.fov_size,
-                                         volume_map=volume_map, feature_name='image_raw')
-    data_shape = label_shape
-    patch = tf.reshape(patch, shape=data_shape)
-
-    # fetch image_stddev and image_mean
-    # image_mean, image_stddev = features.get_image_mean_and_stddev(volume_map, volname)
+    patch = input.load_from_numpylike_2d(coord, volname, shape=image_size,
+                                         volume_map=image_volume_map)
+    # Give images shape [batch_size, z, y, x, n_channels]
+    data_shape = [1] + image_size[::-1] + [1]
+    patch = tf.reshape(patch, data_shape)
 
     if ((FLAGS.image_stddev is None or FLAGS.image_mean is None) and
             not FLAGS.image_offset_scale_map):
@@ -362,7 +363,7 @@ def define_data_input(queue_batch=None):
 
     # Apply basic augmentations.
     transform_axes = augmentation.PermuteAndReflect(
-        rank=4, permutable_axes=_get_permutable_axes(permutable_axes),
+        rank=5, permutable_axes=_get_permutable_axes(permutable_axes),
         reflectable_axes=_get_reflectable_axes(reflectable_axes))
     labels = transform_axes(labels)
     patch = transform_axes(patch)
@@ -374,34 +375,20 @@ def define_data_input(queue_batch=None):
         default_offset=FLAGS.image_mean,
         default_scale=FLAGS.image_stddev)
 
-    # Create a batches of examples corresponding to the patches, labels, and loss weights.
-    patches = tf.data.Dataset.from_tensors(patch).batch(FLAGS.batch_size)
-    labels = tf.data.Dataset.from_tensors(labels).batch(FLAGS.batch_size)
-    loss_weights = tf.data.Dataset.from_tensors(loss_weights).batch(FLAGS.batch_size)
-
-    ## Previous (broken) code to generate batches from ffn.train.py; this is likely
-    ## broken due to updates to the API since tf 1.4 which break backward compatibility.
-
     ## Create a batch of examples. Note that any TF operation before this line
     ## will be hidden behind a queue, so expensive/slow ops can take advantage
     ## of multithreading.
-
-    # patches, labels, loss_weights = tf.train.shuffle_batch(
-    #     [patch, labels, loss_weights], queue_batch,
-    #     num_threads=max(1, FLAGS.batch_size // 2),
-    #     capacity=32 * FLAGS.batch_size,
-    #     min_after_dequeue=4 * FLAGS.batch_size,
-    #     enqueue_many=True
-    # )
-
-    # patches, labels, loss_weights should all be of type Tensor, so fetch a single
-    # element from each.
-
-    return (tf.data.experimental.get_single_element(patches),
-            tf.data.experimental.get_single_element(labels),
-            tf.data.experimental.get_single_element(loss_weights),
-            coord,
-            volname)
+    patches, labels, loss_weights = tf.train.shuffle_batch(
+        [patch, labels, loss_weights],
+        # Note: batch_size param was previously set to queue_batch in the original ffn
+        # train.py script, which lead to ValueError when shuffle_batch() was called.
+        FLAGS.batch_size,
+        capacity=32 * FLAGS.batch_size,
+        min_after_dequeue=4 * FLAGS.batch_size,
+        num_threads=max(1, FLAGS.batch_size // 2),
+        enqueue_many=True
+    )
+    return patches, labels, loss_weights, coord, volname
 
 
 def prepare_ffn(model):
@@ -427,7 +414,8 @@ def main(argv):
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
             eval_tracker = EvalTracker(eval_shape_zyx)
-            load_data_ops = define_data_input()
+            load_data_ops = define_data_input(model)
+            import ipdb;ipdb.set_trace()
             prepare_ffn(model)
             merge_summaries_op = tf.summary.merge_all()
 
