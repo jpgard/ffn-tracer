@@ -16,7 +16,6 @@ def offset_dict_to_csv(offset_dict, fp):
     """Write a dictionary with {dataset_id: (mean, std)} structure to a csv at fp. """
     df = pd.DataFrame.from_dict(offset_dict, orient="index").reset_index()
     df.columns = ["dataset_id", "mean", "std"]
-    import ipdb;ipdb.set_trace()
     df.to_csv(fp, index=False)
 
 
