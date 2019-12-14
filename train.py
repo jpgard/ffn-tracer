@@ -72,6 +72,11 @@ flags.DEFINE_integer('summary_rate_secs', 120,
                      'How often to save summaries (in seconds).')
 
 # FFN training options (from ffn train.py).
+flags.DEFINE_float('seed_pad', 0.05,
+                   'Value to use for the unknown area of the seed.')
+flags.DEFINE_float('threshold', 0.9,
+                   'Value to be reached or exceeded at the new center of the '
+                   'field of view in order for the network to inspect it.')
 flags.DEFINE_enum('fov_policy', 'fixed', ['fixed', 'max_pred_moves'],
                   'Policy to determine where to move the field of the '
                   'network. "fixed" tries predefined offsets specified by '
