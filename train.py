@@ -270,9 +270,6 @@ def get_batch(load_example, eval_tracker, model, batch_size, get_offsets):
 
       where 'b' is the batch_size.
     """
-
-    # TODO(jpgard): modify this function to yield Tensors containing batched data;
-    #  currently it returns DatasetV1Adaptor instead.
     def _batch(iterable):
         for batch_vals in iterable:
             # `batch_vals` is sequence of `batch_size` tuples returned by the
@@ -331,26 +328,31 @@ def define_data_input(model, queue_batch=None):
         FLAGS.tfrecord_dir)
     # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
     # numpy broadcasting when intended behavior is concatenation
-    label_size = train_labels_size(model).tolist()
-    image_size = train_image_size(model).tolist()
+    label_size_xyz = train_labels_size(model).tolist()
+    image_size_xyz = train_image_size(model).tolist()
 
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
-    coord, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
-    labels = input.load_from_numpylike_2d(coord, volname, shape=label_size,
-                                          volume_map=label_volume_map)
+    coord_zyx, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
 
+    # Note: label_size_xyz and image_size_xyz are reversed in call to
+    # load_from_numpylike_2d() to match orientation of axes in coordinate and sizes.
+
+    labels = input.load_from_numpylike_2d(coord_zyx, volname, shape=label_size_xyz[::-1],
+                                          volume_map=label_volume_map)
     # Give labels shape [batch_size, z, y, x, n_channels]
-    label_shape = [1] + label_size[::-1] + [1]
-    labels = tf.reshape(labels, label_shape)
+    label_shape = [1] + label_size_xyz[::-1] + [1]
+    with tf.name_scope(None, 'ReshapeLabels', [labels, label_shape]) as scope:
+        labels = tf.reshape(labels, label_shape)
 
     loss_weights = tf.constant(np.ones(label_shape, dtype=np.float32))
 
-    patch = input.load_from_numpylike_2d(coord, volname, shape=image_size,
+    patch = input.load_from_numpylike_2d(coord_zyx, volname, shape=image_size_xyz[::-1],
                                          volume_map=image_volume_map)
     # Give images shape [batch_size, z, y, x, n_channels]
-    data_shape = [1] + image_size[::-1] + [1]
-    patch = tf.reshape(patch, data_shape)
+    data_shape = [1] + image_size_xyz[::-1] + [1]
+    with tf.name_scope(None, 'ReshapePatch', [patch, data_shape]) as scope:
+        patch = tf.reshape(patch, data_shape)
 
     if ((FLAGS.image_stddev is None or FLAGS.image_mean is None) and
             not FLAGS.image_offset_scale_map):
@@ -384,7 +386,7 @@ def define_data_input(model, queue_batch=None):
         num_threads=max(1, FLAGS.batch_size // 2),
         enqueue_many=True
     )
-    return patches, labels, loss_weights, coord, volname
+    return patches, labels, loss_weights, coord_zyx, volname
 
 
 def prepare_ffn(model):
@@ -495,9 +497,12 @@ def main(argv):
                         # quality of the final object mask.
                         summ.value.extend(eval_tracker.get_summaries())
                         eval_tracker.reset()
+                    #
+                    ## TODO(jpgard): uncomment below later; currently commented for
+                    ##  debugging purposes.
 
-                        assert summary_writer is not None
-                        summary_writer.add_summary(summ, step)
+                    #     assert summary_writer is not None
+                    #     summary_writer.add_summary(summ, step)
 
             if summary_writer is not None:
                 summary_writer.flush()
@@ -508,4 +513,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    tf.compat.v1.enable_eager_execution()
     app.run(main)
