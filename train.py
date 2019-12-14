@@ -233,13 +233,16 @@ def get_example(load_example, eval_tracker, model, get_offsets):
         image array, shape [1, z, y, x, 1]
         label array, shape [1, z, y, x, 1]
     """
+    # TODO(jpgard): check that this shape is the expected shape; the
+    #  train_canvas_size(model) should have shape (x,y,z) such that seed_shape has
+    #  shape (z,y,x).
     seed_shape = train_canvas_size(model).tolist()[::-1]
 
     while True:
         full_patches, full_labels, loss_weights, coord, volname = load_example()
         # Always start with a clean seed.
         seed = logit(mask.make_seed(seed_shape, 1, pad=FLAGS.seed_pad))
-
+        # import ipdb;ipdb.set_trace()
         for off in get_offsets(model, seed):
             predicted = mask.crop_and_pad(seed, off, model.input_seed_size[::-1])
             patches = mask.crop_and_pad(full_patches, off, model.input_image_size[::-1])
@@ -385,7 +388,7 @@ def define_data_input(model, queue_batch=None):
         [patch, labels, loss_weights],
         # Note: batch_size param was previously set to queue_batch in the original ffn
         # train.py script, which lead to ValueError when shuffle_batch() was called.
-        FLAGS.batch_size,
+        queue_batch,
         capacity=32 * FLAGS.batch_size,
         min_after_dequeue=4 * FLAGS.batch_size,
         num_threads=max(1, FLAGS.batch_size // 2),
@@ -411,12 +414,17 @@ def main(argv):
                 tf.train.replica_device_setter(FLAGS.ps_tasks, merge_devices=True)):
             # The constructor might define TF ops/placeholders, so it is important
             # that the FFN is instantiated within the current context.
+            # TODO(jpgard): toggle model dim 2 vs. 3; currently set to 3 to avoid mismatch
+            #  between seed and data tensors during batching in get_example() but
+            #  leads to other downstream errors. Optionally, leave it as 3 and continue
+            #  to correct the scripts, because eventually we will load truly 3D data.
             model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
+                                   dim=3,
                                    fov_size=FLAGS.fov_size[::-1])
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
             eval_tracker = EvalTracker(eval_shape_zyx)
-            load_data_ops = define_data_input(model)
+            load_data_ops = define_data_input(model, queue_batch=1)
             prepare_ffn(model)
             merge_summaries_op = tf.summary.merge_all()
 
@@ -478,7 +486,6 @@ def main(argv):
                         summ_op = None
 
                     seed, patches, labels, weights = next(batch_it)
-
                     updated_seed, step, summ = run_training_step(
                         sess, model, summ_op,
                         feed_dict={
