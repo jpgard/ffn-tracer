@@ -53,7 +53,9 @@ def load_patch_coordinates(coordinate_dir):
 
     Mimics logic from ffn's function with equivalent name.
     :param coordinate_dir: directory containing tfrecord files of coordinates.
-    :return: Tuple of coordinates (shape `[1, 3]`) and volume name (shape `[1]`) tensors.
+    :return: Tuple of coordinates Tensor with (shape `[1, 3]`) and volume name Tensor
+    (shape `[1]`). Coordinates have format (z, y, x) with type Int, and volume
+    has type String.
     """
     tfrecord_files = [os.path.join(coordinate_dir, x)
                       for x in os.listdir(coordinate_dir)
