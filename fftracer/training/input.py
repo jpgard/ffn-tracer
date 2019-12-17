@@ -107,10 +107,7 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
         # if volume.ndim == 4:
         #     slc_zyx = np.index_exp[:] + slc_zyx
 
-        #########################
-        # data = volume[slc_zyx]
-        data = volume
-        #########################
+        data = volume[slc_zyx[::-1]]
 
         # If 4d, move channels to back.  Otherwise, just add flat channels dim.
         # if data.ndim == 4:
@@ -187,11 +184,13 @@ def get_offset_scale(volname,
       Tuple of offset, scale scalar float32 tensors.
     """
     def _get_offset_scale(volname):
-        if volname in offset_scale_map:
-            offset, scale = offset_scale_map[volname]
-        else:
-            offset = default_offset
-            scale = default_scale
+        # TODO(jpgard): get this to work with offset_scale_map; produced "TypeError:
+        #  unhashable type: 'numpy.ndarray' " at line "if volname in offset_scale_map:"
+        # if volname in offset_scale_map:
+        #     offset, scale = offset_scale_map[volname]
+        # else:
+        offset = default_offset
+        scale = default_scale
         return np.float32(offset), np.float32(scale)
 
     offset, scale = tf.py_func(
