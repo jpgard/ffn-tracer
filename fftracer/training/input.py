@@ -9,68 +9,44 @@ from ffn.utils import bounding_box
 import numpy as np
 
 
-def load_tfrecord_dataset(tfrecord_dir, feature_schema):
+def load_img_and_label_maps_from_tfrecords(tfrecord_dir):
     """
-    Load and parse the dataset in tfrecord files.
+    Load the dataset in tfrecord files, returning maps with {id:image} and {id:labels}.
+
     :param tfrecord_files: directory of files containg tfrecords
-    :param feature_schema: dict of {feature_name, tf.io.<feature_type>}
-    :return: a dictionary mapping dataset_ids to datasets, which are parsed
+    :return: two dictionaries, each mapping dataset_ids to numpy arrays, which are parsed
     according to the specified feature schema.
     """
     tfrecord_files = [os.path.join(tfrecord_dir, x)
                       for x in os.listdir(tfrecord_dir)
                       if x.endswith(utils.TFRECORD)]
-    volume_map = dict()
-    for file in tfrecord_files:
-        basename = os.path.basename(file)
+    label_volume_map = dict()
+    image_volume_map = dict()
+    for tfr_file in tfrecord_files:
+        record_iterator = tf.python_io.tf_record_iterator(path=tfr_file)
+        basename = os.path.basename(tfr_file)
         dataset_id = os.path.splitext(basename)[0]
-        raw_image_dataset = tf.data.TFRecordDataset(tfrecord_files)
+        for string_record in record_iterator:
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
 
-        def _parse_image_function(example_proto):
-            # Parse the input tf.Example proto using the dictionary above.
-            return tf.io.parse_single_example(example_proto, feature_schema)
+            shape_y = int(example.features.feature['shape_y'].int64_list.value[0])
 
-        parsed_image_dataset = raw_image_dataset.map(_parse_image_function)
-        volume_map[dataset_id] = parsed_image_dataset
-        # TODO(jpgard): verify this is being parsed correctly; the dataset should
-        #  contain instances of examples which contain Tensors that can be access for
-        #  training
-    return volume_map
+            shape_x = int(example.features.feature['shape_x'].int64_list.value[0])
 
+            img_1d = example.features.feature['image_raw'].float_list.value
 
-def get_batch(dataset, parse_example_fn):
-    """
-    Create a batch of training instances from a tf.Example of a complete neuron.
-    :param dataset: a dataset containing training examples.
-    :param parse_example_fn: callable which returns a dict with keys "x", "y", "seed".
-    Yields:
-        tuple of:
-          seed array, shape [b, z, y, x, 1]
-          image array, shape [b, z, y, x, 1]
-          label array, shape [b, z, y, x, 1]
+            label_1d = example.features.feature['image_label'].float_list.value
 
-        where 'b' is the batch_size.
-    """
-    for element in dataset:
-        parsed_example = parse_example_fn(element)
-    return
+            img = np.array(img_1d).reshape(
+                (shape_y, shape_x))
+            label = np.array(label_1d).reshape(
+                (shape_y, shape_x))
 
+            image_volume_map[dataset_id] = img
+            label_volume_map[dataset_id] = label
 
-def parse_example(example: dict):
-    """
-    Parse an example in the default format.
-    :param example: an element of a tensorflow.python.data.ops.dataset_ops.MapDataset
-    :return: dict with keys "x", "y", "seed" with corresponding Tensors.
-    """
-    shape = tf.concat([example['shape_x'], example['shape_y']], axis=-1)
-    image_raw = tf.reshape(tf.sparse.to_dense(example['image_raw']), shape)
-    image_label = tf.reshape(tf.sparse.to_dense(example['image_label']), shape)
-    seed = tf.concat([example['seed_x'], example['seed_y'], example['seed_z']], axis=-1)
-    #     to see images:
-    #     print("[DEBUG] saving debug images of raw image and trace")
-    #     skimage.io.imsave("tfrecord_image_raw.jpg", image_raw.numpy())
-    #     skimage.io.imsave("tfrecord_image_label.jpg", image_label.numpy())
-    return {"x": image_raw, "y": image_label, "seed": seed}
+    return image_volume_map, label_volume_map
 
 
 def load_patch_coordinates(coordinate_dir):
@@ -79,80 +55,80 @@ def load_patch_coordinates(coordinate_dir):
 
     Mimics logic from ffn's function with equivalent name.
     :param coordinate_dir: directory containing tfrecord files of coordinates.
-    :return: Tuple of coordinates (shape `[1, 3]`) and volume name (shape `[1]`) tensors.
+    :return: Tuple of coordinates Tensor with (shape `[1, 3]`) and volume name Tensor
+    (shape `[1]`). Coordinates have format (z, y, x) with type Int, and volume
+    has type String.
     """
     tfrecord_files = [os.path.join(coordinate_dir, x)
                       for x in os.listdir(coordinate_dir)
                       if x.endswith(utils.TFRECORD)]
-    dataset = tf.data.TFRecordDataset(
-        tfrecord_files,
-        compression_type='GZIP')
-    record = dataset.__iter__().next()
 
-    feature_description = {
-        "center": tf.io.FixedLenFeature(shape=[1, 3], dtype=tf.int64),
-        "label_volume_name": tf.io.FixedLenFeature(shape=[1], dtype=tf.string),
-    }
-
-    def _parse_function(example_proto):
-        # Parse the input `tf.Example` proto using the dictionary above.
-        return tf.io.parse_single_example(example_proto, feature_description)
-
-    parsed_example = _parse_function(record)
-
-    coord = parsed_example['center']
-    volname = parsed_example['label_volume_name']
+    record_options = tf.python_io.TFRecordOptions(
+        tf.python_io.TFRecordCompressionType.GZIP)
+    filename_queue = tf.train.string_input_producer(tfrecord_files, shuffle=True)
+    keys, protos = tf.TFRecordReader(options=record_options).read(filename_queue)
+    examples = tf.parse_single_example(protos, features=dict(
+        center=tf.FixedLenFeature(shape=[1, 3], dtype=tf.int64),
+        label_volume_name=tf.FixedLenFeature(shape=[1], dtype=tf.string),
+    ))
+    coord = examples['center']
+    volname = examples['label_volume_name']
     return (coord, volname)
 
 
-def get_dense_array_from_element(element, feature_name, shape):
-    """Fetch the sparse array for feature_name, densify, and reshape."""
-    volume_sparse = element[feature_name]
-    volume = tf.sparse.to_dense(volume_sparse)
-    volume = tf.reshape(volume, shape)  # volume now has shape (X,Y)
-    return volume
-
-
-def get_shape_xy_from_element(element):
-    shape_xy = [element['shape_x'].numpy().tolist()[0],
-                element['shape_y'].numpy().tolist()[0]]
-    return shape_xy
-
-
-def load_from_numpylike_2d(coordinates, volume_name, shape, volume_map, feature_name):
+def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=None):
     """
     Load data from Numpy-like volumes.
 
     The volume object must support Numpy-like indexing, as well as shape, ndim,
     and dtype properties.  The volume can be 3d or 4d.
-    :param coordinates: tensor of shape [1, 3] containing ZYX coordinates of the
+    :param coordinates: tensor of shape [1, 3] containing XYZ coordinates of the
         center of the subvolume to load.
-    :param volume_name: tensor of shape [1] containing names of volumes to load data
+    :param volume_names: tensor of shape [1] containing names of volumes to load data
         from.
-    :param shape: a 3-sequence giving the ZYX shape of the data to load (where Z is 1).
+    :param shape: a 3-sequence giving the XYZ shape of the data to load (where Z is 1).
     :param volume_map: a dictionary mapping volume names to volume objects.  See above
         for API requirements of the Numpy-like volume objects.
-    :param feature_name: the name of the feature to grab from the volume.
+    :param name: the op name.
     :return: Tensor result of reading data of shape [1] + shape[::-1] + [num_channels]
     from given center coordinate and volume name.  Dtype matches input volumes.
     """
     start_offset = (np.array(shape) - 1) // 2
-    # convert volume_name to string representation for indexing into volume_map
-    volume_name = volume_name.numpy()[0].decode("utf-8")
-    # the volume is a dataset of size one; take the first(only) element, fetch its
-    # corresponding image, and reshape to a 2d array
-    element = volume_map[volume_name].__iter__().next()
-    shape_xy = get_shape_xy_from_element(element)
-    volume = get_dense_array_from_element(element, feature_name, shape_xy)
-    volume = tf.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
-    starts = np.array(coordinates) - start_offset
-    # BoundingBox returns slice in XYZ order, so these can be used to slice the volume
-    slc = bounding_box.BoundingBox(start=starts.ravel(), size=shape).to_slice()
-    data = volume[slc]
-    # Add flat batch dim
-    data = np.expand_dims(data, 0)
-    # return data with shape [batch_dim, X, Y, Z]
-    return data
+    num_channels = 1
+
+    def _load_from_numpylike(coord, volname):
+        """Load from coord and volname, handling 3d or 4d volumes."""
+        volume = volume_map[volname.decode('ascii')]
+        volume = np.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
+        starts = np.array(coord) - start_offset
+        # TODO(jpgard): if slc_zyx is in format (z, y, x) and volume has shape (x, y, z),
+        #  the slicing will be backwards and would yield none.
+        slc_zyx = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
+        # if volume.ndim == 4:
+        #     slc_zyx = np.index_exp[:] + slc_zyx
+
+        data = volume[slc_zyx[::-1]]
+
+        # If 4d, move channels to back.  Otherwise, just add flat channels dim.
+        # if data.ndim == 4:
+        #     data = np.rollaxis(data, 0, start=4)
+        # else:
+        data = np.expand_dims(data, 4)  # shape (X,Y,Z, n_channels)
+
+        # Add flat batch dim and return shape (batch_size, X, Y, Z, n_channels)
+        data = np.expand_dims(data, 0).astype(np.float32)
+        return data
+
+    with tf.name_scope(name, 'LoadFromNumpyLike',
+                       [coordinates, volume_names]) as scope:
+        # For historical reasons these have extra flat dims.
+        coordinates = tf.squeeze(coordinates, axis=0)
+        volume_names = tf.squeeze(volume_names, axis=0)
+        loaded = tf.py_func(
+            _load_from_numpylike, [coordinates, volume_names], [tf.float32],
+            name=scope)[0]
+        loaded.set_shape([1] + shape[::-1] + [num_channels])
+        return loaded
 
 
 def offset_and_scale_patches(patches,
@@ -207,16 +183,17 @@ def get_offset_scale(volname,
     Returns:
       Tuple of offset, scale scalar float32 tensors.
     """
-
     def _get_offset_scale(volname):
-        if volname in offset_scale_map:
-            offset, scale = offset_scale_map[volname]
-        else:
-            offset = default_offset
-            scale = default_scale
+        # TODO(jpgard): get this to work with offset_scale_map; produced "TypeError:
+        #  unhashable type: 'numpy.ndarray' " at line "if volname in offset_scale_map:"
+        # if volname in offset_scale_map:
+        #     offset, scale = offset_scale_map[volname]
+        # else:
+        offset = default_offset
+        scale = default_scale
         return np.float32(offset), np.float32(scale)
 
-    offset, scale = tf.compat.v1.py_func(
+    offset, scale = tf.py_func(
         _get_offset_scale, [volname], [tf.float32, tf.float32],
         stateful=False,
         name=name)
