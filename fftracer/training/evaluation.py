@@ -91,7 +91,6 @@ class EvalTracker(object):
     def add_patch(self, labels, predicted, weights,
                   coord=None, volname=None, patches=None):
         """Evaluates single-object segmentation quality."""
-
         predicted = mask.crop_and_pad(predicted, (0, 0, 0), self._eval_shape)
         weights = mask.crop_and_pad(weights, (0, 0, 0), self._eval_shape)
         labels = mask.crop_and_pad(labels, (0, 0, 0), self._eval_shape)
