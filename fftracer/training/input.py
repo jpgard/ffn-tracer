@@ -38,8 +38,10 @@ def load_img_and_label_maps_from_tfrecords(tfrecord_dir):
 
             label_1d = example.features.feature['image_label'].float_list.value
 
-            img = np.array(img_1d).reshape((shape_y, shape_x))
-            label = np.array(label_1d).reshape((shape_y, shape_x))
+            img = np.array(img_1d).reshape(
+                (shape_y, shape_x))
+            label = np.array(label_1d).reshape(
+                (shape_y, shape_x))
 
             image_volume_map[dataset_id] = img
             label_volume_map[dataset_id] = label
@@ -80,11 +82,11 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
 
     The volume object must support Numpy-like indexing, as well as shape, ndim,
     and dtype properties.  The volume can be 3d or 4d.
-    :param coordinates: tensor of shape [1, 3] containing ZYX coordinates of the
+    :param coordinates: tensor of shape [1, 3] containing XYZ coordinates of the
         center of the subvolume to load.
     :param volume_names: tensor of shape [1] containing names of volumes to load data
         from.
-    :param shape: a 3-sequence giving the ZYX shape of the data to load (where Z is 1).
+    :param shape: a 3-sequence giving the XYZ shape of the data to load (where Z is 1).
     :param volume_map: a dictionary mapping volume names to volume objects.  See above
         for API requirements of the Numpy-like volume objects.
     :param name: the op name.
@@ -99,10 +101,16 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
         volume = volume_map[volname.decode('ascii')]
         volume = np.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
         starts = np.array(coord) - start_offset
-        slc = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
+        # TODO(jpgard): if slc_zyx is in format (z, y, x) and volume has shape (x, y, z),
+        #  the slicing will be backwards and would yield none.
+        slc_zyx = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
         # if volume.ndim == 4:
-        #     slc = np.index_exp[:] + slc
-        data = volume[slc]
+        #     slc_zyx = np.index_exp[:] + slc_zyx
+
+        #########################
+        # data = volume[slc_zyx]
+        data = volume
+        #########################
 
         # If 4d, move channels to back.  Otherwise, just add flat channels dim.
         # if data.ndim == 4:
@@ -186,7 +194,7 @@ def get_offset_scale(volname,
             scale = default_scale
         return np.float32(offset), np.float32(scale)
 
-    offset, scale = tf.compat.v1.py_func(
+    offset, scale = tf.py_func(
         _get_offset_scale, [volname], [tf.float32, tf.float32],
         stateful=False,
         name=name)
