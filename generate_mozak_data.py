@@ -14,7 +14,6 @@ python generate_mozak_data.py \
 import argparse
 from fftracer.datasets.mozak import MozakDataset2d
 from fftracer.datasets import SeedDataset, offset_dict_to_csv
-import tensorflow as tf
 import os.path as osp
 
 
