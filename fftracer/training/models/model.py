@@ -11,14 +11,11 @@ def _predict_object_mask_2d(net, depth=9):
     """
     conv = tf.contrib.layers.conv3d
 
-    # TODO(jpgard): num_outputs may need to be adjusted (32 is original value when conv
-    #  was set to tf.contrib.layers.conv3d .
     with tf.contrib.framework.arg_scope([conv], num_outputs=32,
                                         kernel_size=(3, 3, 1),
                                         padding='SAME'):
         net = conv(net, scope='conv0_a')
         net = conv(net, scope='conv0_b', activation_fn=None)
-
         for i in range(1, depth):
             with tf.name_scope('residual%d' % i):
                 in_net = net
@@ -26,7 +23,6 @@ def _predict_object_mask_2d(net, depth=9):
                 net = conv(net, scope='conv%d_a' % i)
                 net = conv(net, scope='conv%d_b' % i, activation_fn=None)
                 net += in_net
-
     net = tf.nn.relu(net)
     logits = conv(net, 1, (1, 1, 1), activation_fn=None, scope='conv_lom')
 
@@ -56,10 +52,10 @@ class FFNTracerModel(FFNModel):
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
         self.input_patches = tf.placeholder(tf.float32, name='patches')
-        # Set pred_mask_size = input_seed_size = input_image_size = fov_size and also
-        # set input_seed_size = input_image_size = [batch_size, z, y, x, 1]
-        self.set_uniform_io_size(fov_size)
 
+        # Set pred_mask_size = input_seed_size = input_image_size = fov_size and
+        # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
+        self.set_uniform_io_size(fov_size)
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
@@ -69,7 +65,7 @@ class FFNTracerModel(FFNModel):
                 tf.float32, [1] + list(self.input_image_size[::-1]) + [1],
                 name='patches')
 
-        # TODO(jpgard): concatenation may need to be along axis=3, not axis=4, below.
+        # JG: concatenate the input patches and the current mask for input to the model
         net = tf.concat([self.input_patches, self.input_seed], 4)
 
         with tf.variable_scope('seed_update', reuse=False):
