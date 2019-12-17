@@ -502,11 +502,6 @@ def main(argv):
                             model.input_seed: seed,
                         })
 
-                    # TODO(jpgard): here, after one run of training step, updated_seed
-                    #  now contains all nan values. This is what is causing seed to
-                    #  have 49x49 grid of nans, because mask.update_at() inserts these
-                    #  nan values into the existing seed grid.
-
                     # Save prediction results in the original seed array so that
                     # they can be used in subsequent steps.
                     mask.update_at(seed, (0, 0, 0), updated_seed)
