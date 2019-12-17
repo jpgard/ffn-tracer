@@ -7,7 +7,7 @@ data loading for mozak/allen institute imaging.
 usage:
 python train.py --tfrecord_dir ./data/tfrecords \
     --out_dir . --coordinate_dir ./data/coords \
-    --image_offset_scale_map "507727402:78.63:20.44"
+     --image_mean 78 --image_stddev 20 --train_dir ./training-logs
 """
 
 from collections import deque
@@ -24,6 +24,8 @@ from absl import app
 from ffn.training import augmentation, mask
 from scipy.special import expit, logit
 import six
+# Necessary so that optimizer flags are defined.
+from ffn.training import optimizer
 
 from fftracer.training import input
 from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
@@ -233,16 +235,11 @@ def get_example(load_example, eval_tracker, model, get_offsets):
         image array, shape [1, z, y, x, 1]
         label array, shape [1, z, y, x, 1]
     """
-    # TODO(jpgard): check that this shape is the expected shape; the
-    #  train_canvas_size(model) should have shape (x,y,z) such that seed_shape has
-    #  shape (z,y,x).
     seed_shape = train_canvas_size(model).tolist()[::-1]
-
     while True:
         full_patches, full_labels, loss_weights, coord, volname = load_example()
         # Always start with a clean seed.
         seed = logit(mask.make_seed(seed_shape, 1, pad=FLAGS.seed_pad))
-        # import ipdb;ipdb.set_trace()
         for off in get_offsets(model, seed):
             predicted = mask.crop_and_pad(seed, off, model.input_seed_size[::-1])
             patches = mask.crop_and_pad(full_patches, off, model.input_image_size[::-1])
@@ -253,7 +250,6 @@ def get_example(load_example, eval_tracker, model, get_offsets):
             # changes need to be visible in the following iterations.
             assert predicted.base is seed
             yield predicted, patches, labels, weights
-
         eval_tracker.add_patch(
             full_labels, seed, loss_weights, coord, volname, full_patches)
 
@@ -296,7 +292,6 @@ def get_batch(load_example, eval_tracker, model, batch_size, get_offsets):
               in range(batch_size)])):
 
         batched_seeds = np.concatenate(seeds)
-
         yield (batched_seeds, np.concatenate(patches), np.concatenate(labels),
                np.concatenate(weights))
 
@@ -313,10 +308,8 @@ def run_training_step(sess, model, fetch_summary, feed_dict):
 
     if fetch_summary is not None:
         ops_to_run.append(fetch_summary)
-
     results = sess.run(ops_to_run, feed_dict)
     step, prediction = results[1:3]
-
     if fetch_summary is not None:
         summ = results[-1]
     else:
@@ -334,31 +327,36 @@ def define_data_input(model, queue_batch=None):
 
     image_volume_map, label_volume_map = input.load_img_and_label_maps_from_tfrecords(
         FLAGS.tfrecord_dir)
+
     # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
     # numpy broadcasting when intended behavior is concatenation
     label_size_xyz = train_labels_size(model).tolist()
     image_size_xyz = train_image_size(model).tolist()
-
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
     coord_zyx, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
+    # Coordinates are stored in zyx order but are used in xyz order for loading functions,
+    # so they need to be reversed.
+    coord_xyz = tf.reverse(coord_zyx, [False, True])
 
     # Note: label_size_xyz and image_size_xyz are reversed in call to
     # load_from_numpylike_2d() to match orientation of axes in coordinate and sizes.
 
-    labels = input.load_from_numpylike_2d(coord_zyx, volname, shape=label_size_xyz[::-1],
-                                          volume_map=label_volume_map)
+    patch = input.load_from_numpylike_2d(coord_xyz, volname, shape=image_size_xyz,
+                                         volume_map=image_volume_map, name="LoadPatch")
+    labels = input.load_from_numpylike_2d(coord_xyz, volname, shape=label_size_xyz,
+                                          volume_map=label_volume_map, name="LoadLabels")
     # Give labels shape [batch_size, z, y, x, n_channels]
     label_shape = [1] + label_size_xyz[::-1] + [1]
+
     with tf.name_scope(None, 'ReshapeLabels', [labels, label_shape]) as scope:
         labels = tf.reshape(labels, label_shape)
 
     loss_weights = tf.constant(np.ones(label_shape, dtype=np.float32))
 
-    patch = input.load_from_numpylike_2d(coord_zyx, volname, shape=image_size_xyz[::-1],
-                                         volume_map=image_volume_map)
     # Give images shape [batch_size, z, y, x, n_channels]
     data_shape = [1] + image_size_xyz[::-1] + [1]
+
     with tf.name_scope(None, 'ReshapePatch', [patch, data_shape]) as scope:
         patch = tf.reshape(patch, data_shape)
 
@@ -376,7 +374,7 @@ def define_data_input(model, queue_batch=None):
     loss_weights = transform_axes(loss_weights)
     # Normalize image data.
     patch = offset_and_scale_patches(
-        patch, volname[0],
+        patch, volname,
         offset_scale_map=_get_offset_and_scale_map(),
         default_offset=FLAGS.image_mean,
         default_scale=FLAGS.image_stddev)
@@ -384,10 +382,9 @@ def define_data_input(model, queue_batch=None):
     ## Create a batch of examples. Note that any TF operation before this line
     ## will be hidden behind a queue, so expensive/slow ops can take advantage
     ## of multithreading.
+
     patches, labels, loss_weights = tf.train.shuffle_batch(
         [patch, labels, loss_weights],
-        # Note: batch_size param was previously set to queue_batch in the original ffn
-        # train.py script, which lead to ValueError when shuffle_batch() was called.
         queue_batch,
         capacity=32 * FLAGS.batch_size,
         min_after_dequeue=4 * FLAGS.batch_size,
@@ -414,10 +411,13 @@ def main(argv):
                 tf.train.replica_device_setter(FLAGS.ps_tasks, merge_devices=True)):
             # The constructor might define TF ops/placeholders, so it is important
             # that the FFN is instantiated within the current context.
+
             # TODO(jpgard): toggle model dim 2 vs. 3; currently set to 3 to avoid mismatch
             #  between seed and data tensors during batching in get_example() but
             #  leads to other downstream errors. Optionally, leave it as 3 and continue
             #  to correct the scripts, because eventually we will load truly 3D data.
+
+            # Note: all inputs to ffn.training.model.FFNModel are in format (x, y, z).
             model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
                                    dim=3,
                                    fov_size=FLAGS.fov_size[::-1])
@@ -431,9 +431,6 @@ def main(argv):
             # if FLAGS.task == 0:
             #     save_flags()
 
-            ##############################################
-            ## BEGIN MODEL TRAINING LOOP FROM FFN TRAIN.PY
-            ##############################################
             summary_writer = None
             saver = tf.train.Saver(keep_checkpoint_every_n_hours=0.25)
             scaffold = tf.train.Scaffold(saver=saver)
@@ -462,14 +459,22 @@ def main(argv):
                     summary_writer.add_session_log(
                         tf.summary.SessionLog(status=tf.summary.SessionLog.START), step)
 
-                fov_shifts = list(model.shifts)  # x, y, z
+                fov_shifts_xyz = list(model.shifts)
                 if FLAGS.shuffle_moves:
-                    random.shuffle(fov_shifts)
+                    random.shuffle(fov_shifts_xyz)
+
+                # Policy_map is a dict mapping a fov_policy to a callable that
+                # generates offsets, given a model and a seed as inputs. Note that
+                # 'fixed' is the policy used for training, and max_pred_moves is the
+                # policy used for inference.
 
                 policy_map = {
-                    'fixed': partial(fixed_offsets, fov_shifts=fov_shifts),
+                    'fixed': partial(fixed_offsets, fov_shifts=fov_shifts_xyz),
                     'max_pred_moves': max_pred_offsets
                 }
+
+                # JG: batch_it contains (seed, image, label, weights), where each is of
+                # shape [b, z, y, x, 1]
                 batch_it = get_batch(lambda: sess.run(load_data_ops),
                                      eval_tracker, model, FLAGS.batch_size,
                                      policy_map[FLAGS.fov_policy])
@@ -486,6 +491,8 @@ def main(argv):
                         summ_op = None
 
                     seed, patches, labels, weights = next(batch_it)
+                    # JG: weights, labels, patches, and seed all have
+                    # shape [b, z, y, x, 1] at this stage.
                     updated_seed, step, summ = run_training_step(
                         sess, model, summ_op,
                         feed_dict={
@@ -494,6 +501,11 @@ def main(argv):
                             model.input_patches: patches,
                             model.input_seed: seed,
                         })
+
+                    # TODO(jpgard): here, after one run of training step, updated_seed
+                    #  now contains all nan values. This is what is causing seed to
+                    #  have 49x49 grid of nans, because mask.update_at() inserts these
+                    #  nan values into the existing seed grid.
 
                     # Save prediction results in the original seed array so that
                     # they can be used in subsequent steps.
@@ -509,19 +521,12 @@ def main(argv):
                         # quality of the final object mask.
                         summ.value.extend(eval_tracker.get_summaries())
                         eval_tracker.reset()
-                    #
-                    ## TODO(jpgard): uncomment below later; currently commented for
-                    ##  debugging purposes.
 
-                    #     assert summary_writer is not None
-                    #     summary_writer.add_summary(summ, step)
+                        assert summary_writer is not None
+                        summary_writer.add_summary(summ, step)
 
             if summary_writer is not None:
                 summary_writer.flush()
-
-            ##############################################
-            ## END MODEL TRAINING LOOP FROM FFN TRAIN.PY
-            ##############################################
 
 
 if __name__ == "__main__":
