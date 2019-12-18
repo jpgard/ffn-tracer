@@ -3,7 +3,7 @@ Generate a dataset of neuron images from Mozak datasets.
 
 usage:
 python generate_mozak_data.py \
-    --dataset_ids 507727402 \
+    --dataset_ids 507727402 521693148 \
     --gs_dir data/gold_standard \
     --img_dir data/img \
     --seed_csv data/seed_locations/seed_locations.csv \
