@@ -50,29 +50,6 @@ class MozakDataset2d(PairedDataset2d):
         self.check_xy_shapes_match()
         return
 
-    def serialize_example(self):
-        """
-        Creates a tf.Example message ready to be written to a file.
-        """
-        # Create a dictionary mapping the feature name to the tf.Example-compatible
-        # data type.
-        feature = {
-            'shape_x': _int64_feature([self.shape[0]]),
-            'shape_y': _int64_feature([self.shape[1]]),
-            'seed_x': _int64_feature([self.seed.x]),
-            'seed_y': _int64_feature([self.seed.y]),
-            'seed_z': _int64_feature([self.seed.z]),
-            'image_raw': tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
-            ),
-            'image_label': tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.y.flatten().tolist())
-            ),
-        }
-        # Create a Features message using tf.train.Example.
-        example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
-        return example_proto.SerializeToString()
-
     def sample_training_coordinates(self, n: int):
         assert not np.all(self.y == self.pom_pad), \
             "cannot sample coordinates from empty map"
