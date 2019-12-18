@@ -7,7 +7,8 @@ data loading for mozak/allen institute imaging.
 usage:
 python train.py --tfrecord_dir ./data/tfrecords \
     --out_dir . --coordinate_dir ./data/coords \
-     --image_mean 78 --image_stddev 20 --train_dir ./training-logs
+     --image_mean 78 --image_stddev 20 --train_dir ./training-logs \
+     --max_steps 1000000
 """
 
 from collections import deque
