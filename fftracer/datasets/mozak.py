@@ -51,26 +51,17 @@ class MozakDataset2d(PairedDataset2d):
         return
 
     def sample_training_coordinates(self, n: int):
+        """Create a list of (x,y) coordinates for training. Only coordinates with
+        positive labels are candidates for selection."""
         assert not np.all(self.y == self.pom_pad), \
             "cannot sample coordinates from empty map"
         # take a random sample of positive labels
         candidate_indices = np.argwhere(self.y == 1 - self.pom_pad)
         sample_ix = np.random.choice(candidate_indices.shape[0], size=n, replace=False)
         sample = candidate_indices[sample_ix, :]
+        sample = [xy.tolist() for xy in sample]
         return sample
 
     def generate_training_coordinates(self, out_dir, n):
         coords = self.sample_training_coordinates(n)
-        tfrecord_filepath = osp.join(out_dir, self.dataset_id + "_coords.tfrecord")
-        record_options = tf.io.TFRecordOptions(
-            tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
-        with tf.io.TFRecordWriter(tfrecord_filepath,
-                                         options=record_options) as writer:
-            for coord in coords:
-                x,y = coord.tolist()
-                coord_zyx = [0, y, x] # store in reverse to match ffn formatting
-                coord = tf.train.Example(features=tf.train.Features(feature=dict(
-                    center=_int64_feature(coord_zyx),
-                    label_volume_name=_bytes_feature([self.dataset_id.encode('utf-8')])
-                )))
-                writer.write(coord.SerializeToString())
+        self.write_training_coordiates(coords, out_dir)

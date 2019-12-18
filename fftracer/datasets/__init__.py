@@ -69,6 +69,21 @@ class PairedDataset2d(ABC):
         example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
         return example_proto.SerializeToString()
 
+    def write_training_coordiates(self, coords, out_dir):
+        """Write coords to out_dir as tfrecord."""
+        tfrecord_filepath = osp.join(out_dir, self.dataset_id + "_coords.tfrecord")
+        record_options = tf.io.TFRecordOptions(
+            tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
+        with tf.io.TFRecordWriter(tfrecord_filepath,
+                                  options=record_options) as writer:
+            for x, y in coords:
+                coord_zyx = [0, y, x]  # store in reverse to match ffn formatting
+                coord = tf.train.Example(features=tf.train.Features(feature=dict(
+                    center=_int64_feature(coord_zyx),
+                    label_volume_name=_bytes_feature([self.dataset_id.encode('utf-8')])
+                )))
+                writer.write(coord.SerializeToString())
+
     @abstractmethod
     def generate_training_coordinates(self, out_dir, n):
         """Sample a set of training coordinates and write to tfrecord file.
