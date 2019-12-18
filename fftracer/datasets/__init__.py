@@ -73,5 +73,8 @@ class SeedDataset:
                                         "z": int}).set_index("dataset_id")
 
     def get_seed_loc(self, dataset_id: str):
-        seed_loc = self.seeds.loc[dataset_id, :]
-        return Seed(seed_loc.seed_x, seed_loc.seed_y, seed_loc.seed_z)
+        try:
+            seed_loc = self.seeds.loc[dataset_id, :]
+            return Seed(seed_loc.seed_x, seed_loc.seed_y, seed_loc.seed_z)
+        except Exception as e:
+            print("[WARNING]: see not found for dataset_id %s" % (dataset_id))
