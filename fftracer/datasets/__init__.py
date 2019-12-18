@@ -4,6 +4,8 @@ Classes for representing FFN datasets.
 
 import numpy as np
 import pandas as pd
+import os.path as osp
+import tensorflow as tf
 
 from abc import ABC, abstractmethod
 from collections import namedtuple
@@ -56,9 +58,11 @@ class PairedDataset2d(ABC):
         """
         pass
 
-    @abstractmethod
     def write_tfrecord(self, out_dir):
-        """write the dataset to a tfrecord file."""
+        tfrecord_filepath = osp.join(out_dir, self.dataset_id + ".tfrecord")
+        with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
+            example = self.serialize_example()
+            writer.write(example)
 
     def fetch_mean_and_std(self):
         """Fetch the mean and std for use as offsets during training."""

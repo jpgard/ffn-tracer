@@ -73,12 +73,6 @@ class MozakDataset2d(PairedDataset2d):
         example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
         return example_proto.SerializeToString()
 
-    def write_tfrecord(self, out_dir):
-        tfrecord_filepath = osp.join(out_dir, self.dataset_id + ".tfrecord")
-        with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
-            example = self.serialize_example()
-            writer.write(example)
-
     def sample_training_coordinates(self, n: int):
         assert not np.all(self.y == self.pom_pad), \
             "cannot sample coordinates from empty map"
