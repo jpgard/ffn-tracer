@@ -27,7 +27,8 @@ class MozakDataset2d(PairedDataset2d):
         x_file = [f for f in glob.glob(osp.join(img_dir, self.dataset_id + ".*"))
                   if f.endswith(VALID_IMAGE_EXTENSIONS)][0]
         print("[INFO] loading image from {}".format(x_file))
-        self.x = skimage.io.imread(x_file, as_gray=True)
+        x = skimage.io.imread(x_file, as_gray=True)
+        self.x = np.array(x)
 
     def load_data(self, gs_dir, data_dir=None):
         """
