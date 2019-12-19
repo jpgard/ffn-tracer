@@ -4,6 +4,8 @@
 # directories containing data etc
 training-logs
 data
+tmp
+debug
 
 # pycharm
 .idea
