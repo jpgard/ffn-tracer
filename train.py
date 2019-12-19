@@ -257,10 +257,6 @@ def get_example(load_example, eval_tracker, model, get_offsets):
                     dirname="./debug"
                 )
 
-        # TODO(jpgard): it seems that many of the labels corresponding to the selected
-        #  patches do not contain any "hot" label areas (they are entirely empty). Why
-        #  is this? Double-check the selection script with the same approach.
-        #  Additionally, the images and labels look totally garbled. What's going on?
         # Always start with a clean seed.
         seed = logit(mask.make_seed(seed_shape, 1, pad=FLAGS.seed_pad))
         for off in get_offsets(model, seed):
