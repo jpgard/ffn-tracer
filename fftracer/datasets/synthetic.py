@@ -31,6 +31,6 @@ class SyneticDataset2D(PairedDataset2d):
 
     def generate_training_coordinates(self, out_dir, n):
         """Write n replicates of a fixed training coordinate to tfrecord."""
-        coords = [(25, 25) for _ in range(n)]
+        coords = [(65, 65) for _ in range(n)]
         self.write_training_coordiates(coords, out_dir)
 
