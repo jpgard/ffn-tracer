@@ -10,8 +10,8 @@ python generate_mozak_data.py \
     --gs_dir data/gold_standard \
     --img_dir data/img \
     --seed_csv data/seed_locations/seed_locations.csv \
-    --out_dir data/tfrecords \
-    --num_training_coords 1000
+    --out_dir ./data \
+    --num_training_coords 2500
 """
 
 import argparse
@@ -35,8 +35,9 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, img_dir=No
         dset.generate_training_coordinates(out_dir, num_training_coords)
         # save the offets
         neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
+        del dset
     # write offsets to csv
-    offset_dict_to_csv(neuron_offsets, fp=osp.join(out_dir, "offsets.csv"))
+    offset_dict_to_csv(neuron_offsets, fp=osp.join(out_dir, "offsets", "offsets.csv"))
     return
 
 
