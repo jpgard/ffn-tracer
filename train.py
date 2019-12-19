@@ -246,14 +246,17 @@ def get_example(load_example, eval_tracker, model, get_offsets):
     seed_shape = train_canvas_size(model).tolist()[::-1]
     while True:
         full_patches, full_labels, loss_weights, coord, volname = load_example()
-        # TODO(jpgard): verify that the orientation of labels and patches is the same,
-        #  for both synthetic and real data. Easiest way to do this is write to images
-        #  and make sure they line up.
-        write_patch_and_label_to_img(patch=full_patches[0, 0, :, :,
-                                           0] * FLAGS.image_stddev + FLAGS.image_mean,
-                                     label=full_labels[0, 0, :, :, 0] * 255,
-                                     unique_id='_'.join(coord[0].astype(str).tolist()),
-                                     dirname="./debug")
+        # Write a random fraction of paired examples to images and make sure they have
+        # matching and correct orientations.
+        if FLAGS.debug:
+            if random.uniform(0, 1) > 0.999:
+                write_patch_and_label_to_img(
+                    patch=full_patches[0, 0, :, :, 0] * FLAGS.image_stddev + FLAGS.image_mean,
+                    label=full_labels[0, 0, :, :, 0] * 255,
+                    unique_id='_'.join(coord[0].astype(str).tolist()),
+                    dirname="./debug"
+                )
+
         # TODO(jpgard): it seems that many of the labels corresponding to the selected
         #  patches do not contain any "hot" label areas (they are entirely empty). Why
         #  is this? Double-check the selection script with the same approach.
