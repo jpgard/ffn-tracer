@@ -351,12 +351,15 @@ def define_data_input(model, queue_batch=None):
 
     image_volume_map, label_volume_map = input.load_img_and_label_maps_from_tfrecords(
         FLAGS.tfrecord_dir)
-    # import ipdb;ipdb.set_trace()
-    # TODO(jpgard): this doesn't match the original image and labels. Why? Try with the
-    #  synthetic data to see if the same issue arises.
-    write_patch_and_label_to_img(image_volume_map['507727402'].astype(np.uint8),
-                                 (label_volume_map['507727402'] * 256).astype(np.uint8),
-                                 '507727402_f32', "./debug")
+    # write the datasets to debugging directory
+    if FLAGS.debug:
+        for dataset_id in image_volume_map.keys():
+            write_patch_and_label_to_img(
+                image_volume_map[dataset_id].astype(np.uint8),
+                (label_volume_map[dataset_id] * 256).astype(np.uint8),
+                str(dataset_id),
+                "./debug"
+            )
 
     # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
     # numpy broadcasting when intended behavior is concatenation
