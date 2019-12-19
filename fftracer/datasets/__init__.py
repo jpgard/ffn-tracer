@@ -2,7 +2,6 @@
 Classes for representing FFN datasets.
 """
 
-import numpy as np
 import pandas as pd
 import os.path as osp
 import tensorflow as tf
@@ -28,8 +27,10 @@ class PairedDataset2d(ABC):
 
     def __init__(self, dataset_id: str, seed: Seed):
         self.dataset_id = dataset_id
-        self.x = None  # the input grayscale image
-        self.y = None  # the pixel-wise labels for the image
+        # the input grayscale image; an array with shape (height, width) and dtype uint8
+        self.x = None
+        # the pixel-wise labels for the image; an array with shape (height, width)
+        self.y = None
         self.seed = seed
         # pom_pad is the value by which zero labels are increased/1 labels are decreased
         self.pom_pad = 0.05
@@ -53,8 +54,8 @@ class PairedDataset2d(ABC):
         # Create a dictionary mapping the feature name to the tf.Example-compatible
         # data type.
         feature = {
-            'shape_x': _int64_feature([self.shape[0]]),
-            'shape_y': _int64_feature([self.shape[1]]),
+            'shape_x': _int64_feature([self.shape[1]]),
+            'shape_y': _int64_feature([self.shape[0]]),
             'seed_x': _int64_feature([self.seed.x]),
             'seed_y': _int64_feature([self.seed.y]),
             'seed_z': _int64_feature([self.seed.z]),
