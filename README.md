@@ -1,9 +1,8 @@
 # ffn-tracer
 Neuron tracing based on flood-filling networks (FFN)
 
-Example Input Image             |  Ground Truth Trace
-:-------------------------:|:-------------------------:
-![example neuron](./img/tfrecord_image_raw.jpg)  |  ![example neuron](./img/tfrecord_image_label.jpg)
+
+![example neuron](./img/patch_and_label_507727402_f32.png)
 
 In order to train a ffn-tracer model, follow these steps:
 
