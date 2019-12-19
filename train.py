@@ -7,7 +7,14 @@ data loading for mozak/allen institute imaging.
 usage:
 python train.py --tfrecord_dir ./data/tfrecords \
     --out_dir . --coordinate_dir ./data/coords \
-     --image_mean 78 --image_stddev 20 --train_dir ./training-logs
+     --image_mean 78 --image_stddev 20 --train_dir ./training-logs \
+     --max_steps 1000000
+
+[with synthetic data]
+
+python train.py --tfrecord_dir ./synthetic-data/tfrecords --out_dir . \
+    --coordinate_dir ./synthetic-data/coords --image_mean 78 --image_stddev 20 \
+    --train_dir ./tmp --max_steps 10
 """
 
 from collections import deque
@@ -33,6 +40,7 @@ from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
 from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training.evaluation import EvalTracker
+from fftracer.utils.debugging import write_patch_and_label_to_img
 
 FLAGS = flags.FLAGS
 
@@ -238,6 +246,18 @@ def get_example(load_example, eval_tracker, model, get_offsets):
     seed_shape = train_canvas_size(model).tolist()[::-1]
     while True:
         full_patches, full_labels, loss_weights, coord, volname = load_example()
+        # TODO(jpgard): verify that the orientation of labels and patches is the same,
+        #  for both synthetic and real data. Easiest way to do this is write to images
+        #  and make sure they line up.
+        write_patch_and_label_to_img(patch=full_patches[0, 0, :, :,
+                                           0] * FLAGS.image_stddev + FLAGS.image_mean,
+                                     label=full_labels[0, 0, :, :, 0] * 255,
+                                     unique_id='_'.join(coord[0].astype(str).tolist()),
+                                     dirname="./debug")
+        # TODO(jpgard): it seems that many of the labels corresponding to the selected
+        #  patches do not contain any "hot" label areas (they are entirely empty). Why
+        #  is this? Double-check the selection script with the same approach.
+        #  Additionally, the images and labels look totally garbled. What's going on?
         # Always start with a clean seed.
         seed = logit(mask.make_seed(seed_shape, 1, pad=FLAGS.seed_pad))
         for off in get_offsets(model, seed):
@@ -250,6 +270,10 @@ def get_example(load_example, eval_tracker, model, get_offsets):
             # changes need to be visible in the following iterations.
             assert predicted.base is seed
             yield predicted, patches, labels, weights
+        # TODO(jpgard): track volname in eval_tracker. Currently nothing is done with
+        #  volname, but it should be monitored to ensure coverage of all training
+        #  volumes. Similar for coord; would be good to check coordinates covered,
+        #  or at least a sample of them.
         eval_tracker.add_patch(
             full_labels, seed, loss_weights, coord, volname, full_patches)
 
@@ -327,6 +351,12 @@ def define_data_input(model, queue_batch=None):
 
     image_volume_map, label_volume_map = input.load_img_and_label_maps_from_tfrecords(
         FLAGS.tfrecord_dir)
+    # import ipdb;ipdb.set_trace()
+    # TODO(jpgard): this doesn't match the original image and labels. Why? Try with the
+    #  synthetic data to see if the same issue arises.
+    write_patch_and_label_to_img(image_volume_map['507727402'].astype(np.uint8),
+                                 (label_volume_map['507727402'] * 256).astype(np.uint8),
+                                 '507727402_f32', "./debug")
 
     # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
     # numpy broadcasting when intended behavior is concatenation
@@ -382,6 +412,11 @@ def define_data_input(model, queue_batch=None):
     ## Create a batch of examples. Note that any TF operation before this line
     ## will be hidden behind a queue, so expensive/slow ops can take advantage
     ## of multithreading.
+
+    # TODO(jpgard): it looks like the ground truth labels are being loaded as a single
+    #  point instead of the full GT trace of the corresponding region (this is shown by
+    #  examining the images in tensorboard, which show trace and GT mask side-by-side).
+    #  Figure out why this is happening, and fix it.
 
     patches, labels, loss_weights = tf.train.shuffle_batch(
         [patch, labels, loss_weights],

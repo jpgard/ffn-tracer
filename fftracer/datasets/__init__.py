@@ -4,9 +4,13 @@ Classes for representing FFN datasets.
 
 import numpy as np
 import pandas as pd
+import os.path as osp
+import tensorflow as tf
 
 from abc import ABC, abstractmethod
 from collections import namedtuple
+
+from fftracer.utils.features import _int64_feature, _bytes_feature
 
 # a class to represent a seed location
 Seed = namedtuple('Seed', ['x', 'y', 'z'])
@@ -42,10 +46,43 @@ class PairedDataset2d(ABC):
         self.check_xy_shapes_match()
         return self.x.shape
 
-    @abstractmethod
     def serialize_example(self):
-        """create a serialized tf.Example"""
-        pass
+        """
+        Creates a tf.Example message ready to be written to a file.
+        """
+        # Create a dictionary mapping the feature name to the tf.Example-compatible
+        # data type.
+        feature = {
+            'shape_x': _int64_feature([self.shape[0]]),
+            'shape_y': _int64_feature([self.shape[1]]),
+            'seed_x': _int64_feature([self.seed.x]),
+            'seed_y': _int64_feature([self.seed.y]),
+            'seed_z': _int64_feature([self.seed.z]),
+            'image_raw': tf.train.Feature(
+                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
+            ),
+            'image_label': tf.train.Feature(
+                float_list=tf.train.FloatList(value=self.y.flatten().tolist())
+            ),
+        }
+        # Create a Features message using tf.train.Example.
+        example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
+        return example_proto.SerializeToString()
+
+    def write_training_coordiates(self, coords, out_dir):
+        """Write coords to out_dir as tfrecord."""
+        tfrecord_filepath = osp.join(out_dir, self.dataset_id + "_coords.tfrecord")
+        record_options = tf.io.TFRecordOptions(
+            tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
+        with tf.io.TFRecordWriter(tfrecord_filepath,
+                                  options=record_options) as writer:
+            for x, y in coords:
+                coord_zyx = [0, y, x]  # store in reverse to match ffn formatting
+                coord = tf.train.Example(features=tf.train.Features(feature=dict(
+                    center=_int64_feature(coord_zyx),
+                    label_volume_name=_bytes_feature([self.dataset_id.encode('utf-8')])
+                )))
+                writer.write(coord.SerializeToString())
 
     @abstractmethod
     def generate_training_coordinates(self, out_dir, n):
@@ -56,9 +93,11 @@ class PairedDataset2d(ABC):
         """
         pass
 
-    @abstractmethod
     def write_tfrecord(self, out_dir):
-        """write the dataset to a tfrecord file."""
+        tfrecord_filepath = osp.join(out_dir, self.dataset_id + ".tfrecord")
+        with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
+            example = self.serialize_example()
+            writer.write(example)
 
     def fetch_mean_and_std(self):
         """Fetch the mean and std for use as offsets during training."""
@@ -73,5 +112,8 @@ class SeedDataset:
                                         "z": int}).set_index("dataset_id")
 
     def get_seed_loc(self, dataset_id: str):
-        seed_loc = self.seeds.loc[dataset_id, :]
-        return Seed(seed_loc.seed_x, seed_loc.seed_y, seed_loc.seed_z)
+        try:
+            seed_loc = self.seeds.loc[dataset_id, :]
+            return Seed(seed_loc.seed_x, seed_loc.seed_y, seed_loc.seed_z)
+        except Exception as e:
+            print("[WARNING]: see not found for dataset_id %s" % (dataset_id))

@@ -1,3 +1,12 @@
+# system files
+.DS_Store
+
+# directories containing data etc
+training-logs
+data
+tmp
+debug
+
 # pycharm
 .idea
 

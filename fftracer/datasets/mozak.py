@@ -50,56 +50,18 @@ class MozakDataset2d(PairedDataset2d):
         self.check_xy_shapes_match()
         return
 
-    def serialize_example(self):
-        """
-        Creates a tf.Example message ready to be written to a file.
-        """
-        # Create a dictionary mapping the feature name to the tf.Example-compatible
-        # data type.
-        feature = {
-            'shape_x': _int64_feature([self.shape[0]]),
-            'shape_y': _int64_feature([self.shape[1]]),
-            'seed_x': _int64_feature([self.seed.x]),
-            'seed_y': _int64_feature([self.seed.y]),
-            'seed_z': _int64_feature([self.seed.z]),
-            'image_raw': tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.x.flatten().tolist())
-            ),
-            'image_label': tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.y.flatten().tolist())
-            ),
-        }
-        # Create a Features message using tf.train.Example.
-        example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
-        return example_proto.SerializeToString()
-
-    def write_tfrecord(self, out_dir):
-        tfrecord_filepath = osp.join(out_dir, self.dataset_id + ".tfrecord")
-        with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
-            example = self.serialize_example()
-            writer.write(example)
-
     def sample_training_coordinates(self, n: int):
+        """Create a list of (x,y) coordinates for training. Only coordinates with
+        positive labels are candidates for selection."""
         assert not np.all(self.y == self.pom_pad), \
             "cannot sample coordinates from empty map"
         # take a random sample of positive labels
         candidate_indices = np.argwhere(self.y == 1 - self.pom_pad)
         sample_ix = np.random.choice(candidate_indices.shape[0], size=n, replace=False)
         sample = candidate_indices[sample_ix, :]
+        sample = [xy.tolist() for xy in sample]
         return sample
 
     def generate_training_coordinates(self, out_dir, n):
         coords = self.sample_training_coordinates(n)
-        tfrecord_filepath = osp.join(out_dir, self.dataset_id + "_coords.tfrecord")
-        record_options = tf.io.TFRecordOptions(
-            tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
-        with tf.io.TFRecordWriter(tfrecord_filepath,
-                                         options=record_options) as writer:
-            for coord in coords:
-                x,y = coord.tolist()
-                coord_zyx = [0, y, x] # store in reverse to match ffn formatting
-                coord = tf.train.Example(features=tf.train.Features(feature=dict(
-                    center=_int64_feature(coord_zyx),
-                    label_volume_name=_bytes_feature([self.dataset_id.encode('utf-8')])
-                )))
-                writer.write(coord.SerializeToString())
+        self.write_training_coordiates(coords, out_dir)
