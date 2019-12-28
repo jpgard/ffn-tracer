@@ -44,5 +44,11 @@ In order to train a ffn-tracer model, follow these steps:
 
 4. *Inference*: Run inference on a new dataset.
 
+  a. Generate the target volume as hdf5. Note that the working directory should contain a set of z-slice images as `.png` files. These are assembled into the test volume by `png_to_h5.py`.
 
-`[coming soon]`
+  ```
+  cd data/test/507727402
+  python ../../../fftracer/utils/png_to_h5.py 507727402_raw.h5
+  ```
+
+  b. Run the inference step `[coming soon]`
