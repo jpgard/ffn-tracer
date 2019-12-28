@@ -50,5 +50,27 @@ In order to train a ffn-tracer model, follow these steps:
   cd data/test/507727402
   python ../../../fftracer/utils/png_to_h5.py 507727402_raw.h5
   ```
+  
+  b. Set up the jupyer kernel (if intending to use jupyter notebook for interence, which is recommended since it allows for manually specifying seed):
+  
+  ``` 
+  source venv/bin/activate
+  ipython kernel install --user --name=ffn
+  ```
+  
+  After this, navigate to the location of jupyter kernels (on mac this is `/Users/yourname/Library/Jupyter/kernels/ffn`) and verify that the file `kernel.json` points to the correct PYthon interpreter (on some setups, the Python interpreter needs to be set manually). The `kernel.json` file should look like this:
+  ```
+      {
+     "argv": [
+      "path/to/repo/ffn-tracer/venv/bin/python", # line to check
+      "-m",
+      "ipykernel_launcher",
+      "-f",
+      "{connection_file}"
+     ],
+     "display_name": "ffn",
+     "language": "python"
+    }
+  ```
 
-  b. Run the inference step `[coming soon]`
+  c. Run the inference step `[coming soon]`
