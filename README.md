@@ -44,7 +44,7 @@ In order to train a ffn-tracer model, follow these steps:
 
 4. *Inference*: Run inference on a new dataset.
 
-  a. Generate the target volume as hdf5. Note that the working directory should contain a set of z-slice images as `.png` files. These are assembled into the test volume by `png_to_h5.py`.
+  a. Generate the target volume as hdf5. Note that the working directory should contain a set of z-slice images as `.png` files. These are assembled into the test volume by `png_to_h5.py`. For more examples of input png data see e.g. the files [here](https://github.com/janelia-flyem/neuroproof_examples/tree/master/training_sample2/grayscale_maps).
 
   ```
   cd data/test/507727402
