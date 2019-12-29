@@ -7,7 +7,7 @@ Forked from ffn/run_inference.py
 usage:
 python run_inference.py \
     --inference_request="$(cat configs/inference.pbtxt)" \
-    --bounding_box 'start { x:0 y:0 z:0 } size { x:250 y:250 z:250 }'
+    --bounding_box 'start { x:0 y:0 z:0 } size { x:7601 y:9429 z:1 }'
 """
 
 import os
@@ -17,6 +17,7 @@ from google.protobuf import text_format
 from absl import app
 from absl import flags
 from tensorflow import gfile
+import tensorflow as tf
 
 from ffn.utils import bounding_box_pb2
 from ffn.inference import inference
@@ -26,12 +27,15 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('bounding_box', None,
                     'BoundingBox proto in text format defining the area '
-                    'to segmented.')
+                    'to be segmented.')
+
+# Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
+# impossible to parse.
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 def main(unused_argv):
   request = inference_flags.request_from_flags()
-  import ipdb;ipdb.set_trace()
 
   if not gfile.Exists(request.segmentation_output_dir):
     gfile.MakeDirs(request.segmentation_output_dir)
