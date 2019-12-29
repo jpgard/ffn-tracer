@@ -1,19 +1,19 @@
 image {
-  hdf5: "third_party/neuroproof_examples/training_sample2/grayscale_maps.h5:raw"
+  hdf5: "data/test/507727402/507727402_raw.h5:raw"
 }
-image_mean: 128
-image_stddev: 33
+image_mean: 78
+image_stddev: 20
 checkpoint_interval: 1800
 seed_policy: "PolicyPeaks"
-model_checkpoint_path: "training-logs/model.ckpt-1000000"
-model_name: "convstack_3d.ConvStack3DFFNModel"
-model_args: "{\"depth\": 12, \"fov_size\": [1, 49, 49], \"deltas\": [8, 8, 0]}"
+model_checkpoint_path: "training-logs/lr0.001/model.ckpt-1000000"
+model_name: "fftracer.training.models.model.FFNTracerModel"
+model_args: "{\"depth\": 9, \"fov_size\": [1, 49, 49], \"deltas\": [8, 8, 0]}"
 segmentation_output_dir: "results/mozak"
 inference_options {
   init_activation: 0.95
   pad_value: 0.05
   move_threshold: 0.9
-  min_boundary_dist { x: 1 y: 1 z: 1}
+  min_boundary_dist { x: 1 y: 1 z: 0}
   segment_threshold: 0.6
   min_segment_size: 1000
 }
