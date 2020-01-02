@@ -1,14 +1,14 @@
-import skimage
-
 import numpy as np
 import os.path as osp
+import glob
+
+from skimage.io import imread
 
 from fftracer.datasets import PairedDataset2d
 from mozak.utils.connectors import ImageAPIConnector
 from mozak.datasets.gold_standard import MozakGoldStandardTrace
 from mozak.datasets.trace import nodes_and_edges_to_trace
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
-import glob
 
 
 class MozakDataset2d(PairedDataset2d):
@@ -25,7 +25,7 @@ class MozakDataset2d(PairedDataset2d):
         x_file = [f for f in glob.glob(osp.join(img_dir, self.dataset_id + ".*"))
                   if f.endswith(VALID_IMAGE_EXTENSIONS)][0]
         print("[INFO] loading image from {}".format(x_file))
-        x = skimage.io.imread(x_file, as_gray=True)
+        x = imread(x_file, as_gray=True)
         self.x = np.array(x)
 
     def load_data(self, gs_dir, data_dir=None):
