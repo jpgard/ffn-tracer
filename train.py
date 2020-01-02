@@ -50,8 +50,6 @@ flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of
 flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
                                             "patch coodinates")
 flags.DEFINE_string("out_dir", None, "directory to save to")
-
-flags.DEFINE_integer("epochs", 1, "training epochs")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
 flags.DEFINE_list('permutable_axes', ['1', '2'],
