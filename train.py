@@ -52,7 +52,9 @@ flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files 
 flags.DEFINE_string("out_dir", None, "directory to save to")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
-flags.DEFINE_list("visible_gpus", None, "optional list of GPUs to use")
+flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
+                                          "comma-separation for lists of GPU IDs e.g. "
+                                          "'0,1,2' ")
 flags.DEFINE_list('permutable_axes', ['1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be permuted '
@@ -114,27 +116,6 @@ flags.DEFINE_float('image_stddev', None,
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-
-def set_visible_gpus():
-    """Set only the specified GPUs to be visible, if provided in flags.
-
-    By default, all GPUs are visible.
-    """
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    if FLAGS.visible_gpus:
-        assert len(physical_devices) > 0, "No GPU hardware devices available"
-        visible_devices = list()
-        # add each GPU, by the index specified in flags, to the list of visible devices
-        for i in FLAGS.visible_gpus:
-            visible_devices.append(physical_devices[int(i)])
-            logging.info("Setting GPU {} to visible".format(i))
-        tf.config.experimental.set_visible_devices(visible_devices, 'GPU')
-        logical_devices = tf.config.experimental.list_logical_devices('GPU')
-    else:
-        logging.info("visible_gpus flag not specified; all GPUs are visible by default.")
-    return
-
 
 
 def _get_offset_and_scale_map():
@@ -464,7 +445,6 @@ def prepare_ffn(model):
 
 
 def main(argv):
-    set_visible_gpus()
     with tf.Graph().as_default():
         with tf.device(
                 tf.train.replica_device_setter(FLAGS.ps_tasks, merge_devices=True)):
@@ -502,7 +482,10 @@ def main(argv):
                     config=tf.ConfigProto(
                         log_device_placement=False,
                         allow_soft_placement=True,
-                        gpu_options=tf.GPUOptions(allow_growth=True)
+                        gpu_options=tf.GPUOptions(
+                            allow_growth=True,
+                            visible_device_list=FLAGS.visible_gpus
+                        )
                     ),
                     checkpoint_dir=FLAGS.train_dir,
                     scaffold=scaffold) as sess:
