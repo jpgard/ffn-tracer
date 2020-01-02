@@ -477,7 +477,9 @@ def main(argv):
                     save_summaries_steps=None,
                     save_checkpoint_secs=300,
                     config=tf.ConfigProto(
-                        log_device_placement=False, allow_soft_placement=True),
+                        log_device_placement=False, allow_soft_placement=True,
+                        gpu_options=tf.GPUOptions(allow_growth=True)
+                    ),
                     checkpoint_dir=FLAGS.train_dir,
                     scaffold=scaffold) as sess:
 
