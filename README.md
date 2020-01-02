@@ -47,7 +47,8 @@ In order to train a ffn-tracer model, follow these steps:
          --image_mean 78 --image_stddev 20 \
          --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH} \
          --learning_rate $LEARNING_RATE \
-         --max_steps 10000000
+         --max_steps 10000000 \
+         --visible_gpus=0,1
     ```
     
     b. (**optional, but recommended**) initiate TensorBoard to monitor training and view sample labeled images:
