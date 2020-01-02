@@ -10,20 +10,25 @@ In order to train a ffn-tracer model, follow these steps:
 
 1. Determine seed locations for each neuron. Seed locations can either be manually determined by inspecting each image using a tool such as [GIMP](https://www.gimp.org/) or Vaa3D, or by a custom algorithm Seed locations should be stored in a CSV file. For an example, see `seed_locations.csv` in this repo.
 
-2. Create `tfrecord`s and training data coordinates for your dataset:
+2. Create `tfrecord`s and training data coordinates for your dataset. For example, to replicate the datasets used in our analysis, run:
 
     ``` 
     python generate_mozak_data.py \
-        --dataset_ids 507727402 \
+    --dataset_ids 319215569 515843906 541830986 397462955 \
+        518298467 548268538 476667707 518358134 550168314 \
+        476912429 518784828 565040416 495358721 520260582 \
+        565298596 507727402 521693148 565636436 508767079 \
+        521702225 565724110 508821490 522442346 570369389 \
+        515548817 529751320 \
         --gs_dir data/gold_standard \
         --img_dir data/img \
         --seed_csv data/seed_locations/seed_locations.csv \
-        --out_dir data/tfrecords \
-        --num_training_coords 1000
+        --out_dir data/ \
+        --num_training_coords 2500
     ```
     
     This deposits a set of `tfrecord`s containing the training data
-    into `out_dir`, one `tfrecord` per dataset.
+    into `out_dir/tfrecords`, one `tfrecord` per dataset.
     
 3. *Training*:
 
@@ -31,18 +36,18 @@ In order to train a ffn-tracer model, follow these steps:
 
     ``` 
     export LEARNING_RATE=0.001
-    export DEPTH=12
+    export DEPTH=9
     ```
 
-    a. Initiate model training. You should determine values for `image_mean` and `image_stddev` for your data.
+    a. Initiate model training. You should determine values for `image_mean` and `image_stddev` for your data. Set the desired number of training iterations via `max_steps`.
     
     ```
     python train.py --tfrecord_dir ./data/tfrecords \
         --out_dir . --coordinate_dir ./data/coords \
          --image_mean 78 --image_stddev 20 \
          --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH} \
-         --learining_rate $LEARNING_RATE
-         --max_steps 1000000
+         --learning_rate $LEARNING_RATE \
+         --max_steps 10000000
     ```
     
     b. (**optional, but recommended**) initiate TensorBoard to monitor training and view sample labeled images:
