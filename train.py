@@ -52,6 +52,7 @@ flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files 
 flags.DEFINE_string("out_dir", None, "directory to save to")
 
 flags.DEFINE_integer("epochs", 1, "training epochs")
+flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
 flags.DEFINE_list('permutable_axes', ['1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
@@ -457,7 +458,8 @@ def main(argv):
             # Note: all inputs to ffn.training.model.FFNModel are in format (x, y, z).
             model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
                                    dim=3,
-                                   fov_size=FLAGS.fov_size[::-1])
+                                   fov_size=FLAGS.fov_size[::-1],
+                                   depth=FLAGS.depth)
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
             eval_tracker = EvalTracker(eval_shape_zyx)
