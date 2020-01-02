@@ -27,12 +27,21 @@ In order to train a ffn-tracer model, follow these steps:
     
 3. *Training*:
 
+    Set the learning rate and depth of the model. The default ffn learning rate is 0.001 and the depth is 9.
+
+    ``` 
+    export LEARNING_RATE=0.001
+    export DEPTH=12
+    ```
+
     a. Initiate model training. You should determine values for `image_mean` and `image_stddev` for your data.
     
     ```
     python train.py --tfrecord_dir ./data/tfrecords \
         --out_dir . --coordinate_dir ./data/coords \
-         --image_mean 78 --image_stddev 20 --train_dir ./training-logs \
+         --image_mean 78 --image_stddev 20 \
+         --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH} \
+         --learining_rate $LEARNING_RATE
          --max_steps 1000000
     ```
     
