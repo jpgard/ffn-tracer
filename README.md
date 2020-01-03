@@ -47,6 +47,7 @@ In order to train a ffn-tracer model, follow these steps:
         --out_dir . --coordinate_dir ./data/coords \
          --image_mean 78 --image_stddev 20 \
          --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV} \
+         --depth $DEPTH
          --learning_rate $LEARNING_RATE \
          --max_steps 10000000 \
          --fov_size 1,${FOV},${FOV} \
