@@ -37,6 +37,7 @@ In order to train a ffn-tracer model, follow these steps:
     ``` 
     export LEARNING_RATE=0.001
     export DEPTH=9
+    export FOV=343
     ```
 
     a. Initiate model training. You should determine values for `image_mean` and `image_stddev` for your data. Set the desired number of training iterations via `max_steps`.
@@ -45,9 +46,10 @@ In order to train a ffn-tracer model, follow these steps:
     python train.py --tfrecord_dir ./data/tfrecords \
         --out_dir . --coordinate_dir ./data/coords \
          --image_mean 78 --image_stddev 20 \
-         --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH} \
+         --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV} \
          --learning_rate $LEARNING_RATE \
          --max_steps 10000000 \
+         --fov_size 1,${FOV},${FOV} \
          --visible_gpus=0,1
     ```
     
@@ -66,7 +68,7 @@ In order to train a ffn-tracer model, follow these steps:
   python ../../../fftracer/utils/png_to_h5.py 507727402_raw.h5
   ```
   
-  b. Set up the jupyer kernel (if intending to use jupyter notebook for interence, which is recommended since it allows for manually specifying seed):
+  b. Set up the [Jupyter kernel](https://ipython.readthedocs.io/en/stable/install/kernel_install.html) if intending to use jupyter notebook for interence (recommended, since the notebook allows for manual seed specification and has an interactive visualization):
   
   ``` 
   source venv/bin/activate
@@ -88,4 +90,18 @@ In order to train a ffn-tracer model, follow these steps:
     }
   ```
 
-  c. Run the inference step `[coming soon]`
+  c. Run the inference step. The easiest way to do this is to run the interactive jupyter notebook that allows you to view the dynamic canvas as FFN inference proceeds.
+  
+  To run the inference notebook on a remote machine:
+  
+  On the remote machine, run
+  ```
+  jupyter notebook --no-browser --port=8889
+  ```
+  
+  On the local machine, run
+  ``` 
+  ssh -N -f -L localhost:8888:localhost:8889 remote_user@remote_host
+  ```
+  
+  Now open your browser on the local machine and type in the address bar [localhost:8888](localhost:8888).
