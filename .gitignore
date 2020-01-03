@@ -6,6 +6,8 @@ training-logs
 data
 tmp
 debug
+synthetic-data
+results
 
 # pycharm
 .idea
