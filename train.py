@@ -457,9 +457,14 @@ def main(argv):
             #  to correct the scripts, because eventually we will load truly 3D data.
 
             # Note: all inputs to ffn.training.model.FFNModel are in format (x, y, z).
+
+            # If fov_size is specified at command line, it will be stored as a list of
+            # strings; these need to be coerced to integers.
+            fov_size = [int(x) for x in FLAGS.fov_size]
+
             model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
                                    dim=3,
-                                   fov_size=FLAGS.fov_size[::-1],
+                                   fov_size=fov_size[::-1],
                                    depth=FLAGS.depth)
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
