@@ -14,21 +14,19 @@ In order to train a ffn-tracer model, follow these steps:
 
     ``` 
     python generate_mozak_data.py \
-    --dataset_ids 319215569 515843906 541830986 397462955 \
-        518298467 548268538 476667707 518358134 550168314 \
-        476912429 518784828 565040416 495358721 520260582 \
-        565298596 507727402 521693148 565636436 508767079 \
-        521702225 565724110 508821490 522442346 570369389 \
-        515548817 529751320 \
+        --dataset_ids 507727402 521693148 522442346 529751320 565040416 565298596 565636436 \
+            565724110 570369389 319215569 397462955 476667707 476912429 495358721 508767079 \
+            508821490 515548817 515843906 518298467 518358134 518784828 520260582 521693148 \
+            521702225 522442346 541830986 548268538 550168314 \
         --gs_dir data/gold_standard \
         --img_dir data/img \
         --seed_csv data/seed_locations/seed_locations.csv \
-        --out_dir data/ \
-        --num_training_coords 2500
+        --out_dir ./data \
+        --num_training_coords 5000 \
+        --coord_margin 171
     ```
     
-    This deposits a set of `tfrecord`s containing the training data
-    into `out_dir/tfrecords`, one `tfrecord` per dataset.
+    This deposits a set of `tfrecord`s containing the training data into `out_dir/tfrecords`, one `tfrecord` per dataset, along with a set of `tfrecord`s containing coordinates to use for training examples (each coordinate contains the location of a ground-truth pixel).
     
 3. *Training*:
 

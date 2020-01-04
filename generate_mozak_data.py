@@ -11,7 +11,7 @@ python generate_mozak_data.py \
     --img_dir data/img \
     --seed_csv data/seed_locations/seed_locations.csv \
     --out_dir ./data \
-    --num_training_coords 2500 \
+    --num_training_coords 5000 \
     --coord_margin 171
 """
 
