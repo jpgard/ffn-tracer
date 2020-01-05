@@ -107,6 +107,11 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
 
         data = volume[slc_zyx[::-1]]
 
+        # Verify that data is non-empty and print data warning if it is. Useful for
+        # debugging since TensorFlow won't produce an informative error in this case.
+        assert (data.ndim and data.size) != 0, "empty data at coord {} in " \
+                                               "volume {}".format(coord, volname)
+
         # If 4d, move channels to back.  Otherwise, just add flat channels dim.
         # if data.ndim == 4:
         #     data = np.rollaxis(data, 0, start=4)
@@ -181,6 +186,7 @@ def get_offset_scale(volname,
     Returns:
       Tuple of offset, scale scalar float32 tensors.
     """
+
     def _get_offset_scale(volname):
         # TODO(jpgard): get this to work with offset_scale_map; produced "TypeError:
         #  unhashable type: 'numpy.ndarray' " at line "if volname in offset_scale_map:"
