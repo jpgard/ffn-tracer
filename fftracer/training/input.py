@@ -101,8 +101,6 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
         volume = volume_map[volname.decode('ascii')]
         volume = np.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
         starts = np.array(coord) - start_offset
-        # TODO(jpgard): if slc_zyx is in format (z, y, x) and volume has shape (x, y, z),
-        #  the slicing will be backwards and would yield none.
         slc_zyx = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
         # if volume.ndim == 4:
         #     slc_zyx = np.index_exp[:] + slc_zyx
