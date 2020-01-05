@@ -8,8 +8,8 @@ usage:
 python train.py --tfrecord_dir ./data/tfrecords \
     --out_dir . --coordinate_dir ./data/coords \
      --image_mean 78 --image_stddev 20 \
-     --train_dir ./training-logs \
-     -- depth $DEPTH \
+     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV} \
+     --depth $DEPTH \
      --learning_rate $LEARNING_RATE \
      --fov_size 1,${FOV},${FOV} \
      --max_steps 1000000 \
