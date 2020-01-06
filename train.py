@@ -368,7 +368,9 @@ def define_data_input(model, queue_batch=None):
             )
 
     # Fetch (x,y,z) sizes of images and labels; coerce to list to avoid unintentional
-    # numpy broadcasting when intended behavior is concatenation
+    # numpy broadcasting when intended behavior is concatenation. The size of
+    # images/labels are the FOV with an added margin of (deltas * fov_moves) along each
+    # axis.
     label_size_xyz = train_labels_size(model).tolist()
     image_size_xyz = train_image_size(model).tolist()
     # Fetch a single coordinate and volume name from a queue reading the
