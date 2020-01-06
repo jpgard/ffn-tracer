@@ -12,7 +12,9 @@ python generate_mozak_data.py \
     --seed_csv data/seed_locations/seed_locations.csv \
     --out_dir ./data \
     --num_training_coords 5000 \
-    --coord_margin 171
+    --coord_margin_xy 179
+
+Note that coord_margin_xy should be set to (fov_size_xy - 1 // 2) + delta_xy * fov_moves.
 """
 
 import argparse
@@ -21,8 +23,8 @@ from fftracer.datasets import SeedDataset, offset_dict_to_csv
 import os.path as osp
 
 
-def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_margin,
-    img_dir=None):
+def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_margin_xy,
+         img_dir=None):
     seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
     neuron_offsets = dict()
@@ -34,7 +36,7 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_marg
         # write data to a tfrecord file
         dset.write_tfrecord(out_dir)
         # write training coordinates (this does work of ffn's build_coordinates.py)
-        dset.generate_training_coordinates(out_dir, num_training_coords, coord_margin)
+        dset.generate_training_coordinates(out_dir, num_training_coords, coord_margin_xy)
         # save the offets
         neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
         del dset
@@ -56,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_training_coords", help="number of training coordinates "
                                                       "to generate",
                         required=True, type=int)
-    parser.add_argument("--coord_margin", type=int,
+    parser.add_argument("--coord_margin_xy", type=int,
                         help="sampled coordinates must be at least this far from image "
                              "boundaries (set to max fov_size // 2")
     args = parser.parse_args()
