@@ -98,9 +98,22 @@ def load_from_numpylike_2d(coordinates, volume_names, shape, volume_map, name=No
 
     def _load_from_numpylike(coord, volname):
         """Load from coord and volname, handling 3d or 4d volumes."""
-        volume = volume_map[volname.decode('ascii')]
+        volume = volume_map[volname.decode('ascii')]  # fetch volume with shape (X, Y)
         volume = np.expand_dims(volume, axis=-1)  # volume now has shape (X,Y,Z)
         starts = np.array(coord) - start_offset
+
+        # Verify that coordinates are within the size of the data region.
+        assert np.all(np.array(coord) + start_offset <= volume.shape), \
+            "Coordinate {} with offset {} (= {}) is beyond image dimensions of {}" \
+            " for volume {}; ".format(coord, start_offset, np.array(coord) +
+                                      start_offset, volume.shape, volname
+                                      )
+        assert np.all(np.array(coord) - start_offset >= 0), \
+            "Coordinate {} with offset {} (= {}) is <= 0 with image dimensions of {} " \
+            "for volume {}".format(coord, start_offset, np.array(coord) - start_offset,
+                                   volume.shape, volname
+                                   )
+
         slc_zyx = bounding_box.BoundingBox(start=starts, size=shape).to_slice()
         # if volume.ndim == 4:
         #     slc_zyx = np.index_exp[:] + slc_zyx
