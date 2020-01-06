@@ -14,7 +14,6 @@ python generate_mozak_data.py \
     --num_training_coords 5000 \
     --coord_margin_xy 179
 
-Note that coord_margin_xy should be set to (fov_size_xy - 1 // 2) + delta_xy * fov_moves.
 """
 
 import argparse
@@ -60,6 +59,7 @@ if __name__ == "__main__":
                         required=True, type=int)
     parser.add_argument("--coord_margin_xy", type=int,
                         help="sampled coordinates must be at least this far from image "
-                             "boundaries (set to max fov_size // 2")
+                             "boundaries; use (fov_size_xy - 1 // 2) + delta_xy * "
+                             "fov_moves")
     args = parser.parse_args()
     main(**vars(args))
