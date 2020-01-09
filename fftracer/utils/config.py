@@ -41,8 +41,8 @@ class InferenceConfig:
         seed_policy: "{seed_policy}"
         model_checkpoint_path: "{model_checkpoint_path}"
         model_name: "{model_name}"
-        model_args: "{{\\"depth\\": {depth}, \\"fov_size\\": {fov_size}, \\"deltas\\": 
-        {deltas} }}"
+        model_args: "{{\\"depth\\": {depth}, \\"fov_size\\": [{fov_size[x]}, {fov_size[y]}, {fov_size[z]}], 
+        \\"deltas\\": [{deltas[x]}, {deltas[y]}, {deltas[z]}] }}"
         segmentation_output_dir: "{segmentation_output_dir}"
         inference_options {{
           init_activation: {init_activation}
@@ -64,4 +64,3 @@ class InferenceConfig:
             min_segment_size=self.min_segment_size
         )
         return config
-
