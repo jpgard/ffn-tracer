@@ -37,21 +37,20 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 def main(unused_argv):
-    # request = inference_flags.request_from_flags()
 
     # TODO(jpgard): remove the hard-coded InferenceConfig params, or optionally
     #  move back to command-line parameter as
     #  --inference_request="$(cat configs/inference.pbtxt)" and use
     #  inference.request_from_flags().
 
-    move_threshold = 0.0675
+    move_threshold = 0.07
     learning_rate = 0.001
     depth = 9
     fov_size = {"x": 135, "y": 135, "z": 1}
     model_uid = "lr{learning_rate}depth{depth}fov{fov}" \
         .format(learning_rate=learning_rate,
                 depth=depth,
-                fov=max(v for v in fov_size.values())
+                fov=max(fov_size.values())
                 )
     segmentation_output_dir = "results/tmp/" + model_uid + "mt" + str(move_threshold)
     ckpt_id = 3052534
