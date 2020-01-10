@@ -44,13 +44,27 @@ def main(unused_argv):
     #  --inference_request="$(cat configs/inference.pbtxt)" and use
     #  inference.request_from_flags().
 
+    move_threshold = 0.0675
+    learning_rate = 0.001
+    depth = 9
+    fov_size = {"x": 135, "y": 135, "z": 1}
+    model_uid = "lr{learning_rate}depth{depth}fov{fov}" \
+        .format(learning_rate=learning_rate,
+                depth=depth,
+                fov=max(v for v in fov_size.values())
+                )
+    segmentation_output_dir = "results/tmp/" + model_uid + "mt" + str(move_threshold)
+    ckpt_id = 3052534
+    model_checkpoint_path = "training-logs/{}/model.ckpt-{}".format(model_uid, ckpt_id)
+
     inference_config = InferenceConfig(
         image="data/test/507727402/507727402_raw.h5:raw",
-        fov_size={"x": 269, "y": 269, "z": 1},
-        deltas={"x": 8, "y": 8, "z": 0}, depth=9, image_mean=78, image_stddev=20,
-        model_checkpoint_path="training-logs/lr0.001depth9fov135/model.ckpt-3052534",
+        fov_size=fov_size,
+        deltas={"x": 8, "y": 8, "z": 0}, depth=depth, image_mean=78, image_stddev=20,
+        model_checkpoint_path=model_checkpoint_path,
         model_name="fftracer.training.models.model.FFNTracerModel",
-        segmentation_output_dir="results/tmp", move_threshold=0.125,
+        segmentation_output_dir=segmentation_output_dir,
+        move_threshold=move_threshold,
         min_segment_size=5,
         segment_threshold=0.075,  # set this low to avoid "failed: too small" at end of
         # inference
@@ -74,6 +88,9 @@ def main(unused_argv):
     start_zyx = (bbox.start.z, bbox.start.y, bbox.start.x)
     size_zyx = (bbox.size.z, bbox.size.y, bbox.size.x)
     logging.info("Running; start at {} size {}.".format(start_zyx, size_zyx))
+
+    # Segmentation is attempted from all valid starting points provided by the seed
+    # policy by calling runner.canvas.segment_all().
     runner.run(start_zyx,
                size_zyx)
     logging.info("Finished running.")
@@ -81,6 +98,9 @@ def main(unused_argv):
     counter_path = os.path.join(inference_config.segmentation_output_dir, 'counters.txt')
     if not gfile.Exists(counter_path):
         runner.counters.dump(counter_path)
+
+    runner.stop_executor()
+    del runner
 
 
 if __name__ == '__main__':
