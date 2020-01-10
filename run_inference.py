@@ -50,11 +50,15 @@ def main(unused_argv):
       deltas={"x": 8, "y": 8, "z": 0}, depth=9, image_mean=78, image_stddev=20,
       model_checkpoint_path="training-logs/lr0.001depth9fov135/model.ckpt-3052534",
       model_name="fftracer.training.models.model.FFNTracerModel",
-      segmentation_output_dir="results/tmp", move_threshold=0.1,
+      segmentation_output_dir="results/tmp", move_threshold=0.125,
+      min_segment_size=5,
+      segment_threshold=0.075, # set this low to avoid "failed: too small" at end of
+      # inference
       min_boundary_dist={"x": 1, "y": 1, "z": 0},
       seed_policy="ManualSeedPolicy"
   )
   config = inference_config.to_string()
+  logging.info(config)
   req = inference_pb2.InferenceRequest()
   _ = text_format.Parse(config, req)
 
