@@ -83,7 +83,7 @@ class FFNTracerModel(FFNModel):
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
-    def set_up_ssim_multiscale_loss(self, logits):
+    def set_up_ms_ssim_loss(self, logits):
         """Set up multiscale structural similarity index (MS-SSIM) loss.
 
         MS-SSIM loss does not support per-pixel weighting.
@@ -104,8 +104,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_l1_loss(logit_seed)
         elif self.loss_name == "ssim":
             self.set_up_ssim_loss(logit_seed)
-        elif self.loss_name == "ssim_multiscale":
-            self.set_up_ssim_multiscale_loss(logit_seed)
+        elif self.loss_name == "ms_ssim":
+            self.set_up_ms_ssim_loss(logit_seed)
         else:
             raise NotImplementedError
 
