@@ -2,12 +2,13 @@
 Classes for representing FFN datasets.
 """
 
+from abc import ABC, abstractmethod
+from collections import namedtuple
+from typing import Optional
+
 import pandas as pd
 import os.path as osp
 import tensorflow as tf
-
-from abc import ABC, abstractmethod
-from collections import namedtuple
 
 from fftracer.utils.features import _int64_feature, _bytes_feature
 
@@ -46,6 +47,10 @@ class PairedDataset2d(ABC):
     def shape(self):
         self.check_xy_shapes_match()
         return self.x.shape
+
+    @property
+    def label_value(self):
+        return 1 - self.pom_pad
 
     def serialize_example(self):
         """
@@ -87,7 +92,7 @@ class PairedDataset2d(ABC):
                 writer.write(coord.SerializeToString())
 
     @abstractmethod
-    def generate_training_coordinates(self, out_dir, n):
+    def generate_training_coordinates(self, out_dir, n, **kwargs):
         """Sample a set of training coordinates and write to tfrecord file.
 
         This method does the work of ffn's build_coordinates.py, but as a class method
