@@ -12,6 +12,7 @@ python train.py --tfrecord_dir ./data/tfrecords \
      --depth $DEPTH \
      --learning_rate $LEARNING_RATE \
      --fov_size 1,${FOV},${FOV} \
+     --loss_name $LOSS \
      --max_steps 1000000 \
      --visible_gpus=0,1
 

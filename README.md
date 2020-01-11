@@ -42,14 +42,15 @@ In order to train a ffn-tracer model, follow these steps:
     
     ```
     python train.py --tfrecord_dir ./data/tfrecords \
-        --out_dir . --coordinate_dir ./data/coords \
-         --image_mean 78 --image_stddev 20 \
-         --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV} \
-         --depth $DEPTH
-         --learning_rate $LEARNING_RATE \
-         --max_steps 10000000 \
-         --fov_size 1,${FOV},${FOV} \
-         --visible_gpus=0,1
+    --out_dir . --coordinate_dir ./data/coords \
+     --image_mean 78 --image_stddev 20 \
+     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
+     --depth $DEPTH \
+     --learning_rate $LEARNING_RATE \
+     --fov_size 1,${FOV},${FOV} \
+     --loss_name $LOSS \
+     --max_steps 1000000 \
+     --visible_gpus=0,1
     ```
     
     b. (**optional, but recommended**) initiate TensorBoard to monitor training and view sample labeled images:
