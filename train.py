@@ -8,7 +8,7 @@ usage:
 python train.py --tfrecord_dir ./data/tfrecords \
     --out_dir . --coordinate_dir ./data/coords \
      --image_mean 78 --image_stddev 20 \
-     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV} \
+     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
      --depth $DEPTH \
      --learning_rate $LEARNING_RATE \
      --fov_size 1,${FOV},${FOV} \
@@ -56,6 +56,9 @@ flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files 
                                             "patch coodinates")
 flags.DEFINE_string("out_dir", None, "directory to save to")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
+flags.DEFINE_enum("loss_name", "sigmoid_pixelwise",
+                  ["sigmoid_pixelwise", "l1", "ssim", "ssim_multiscale"],
+                  "the loss function to use")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
 flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
                                           "comma-separation for lists of GPU IDs e.g. "

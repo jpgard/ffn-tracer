@@ -33,7 +33,7 @@ class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
     def __init__(self, deltas, batch_size=None, dim=2,
-                 fov_size=None, depth=9):
+                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise"):
         """
 
         :param deltas:
@@ -48,6 +48,7 @@ class FFNTracerModel(FFNModel):
         self.deltas = deltas
         self.batch_size = batch_size
         self.depth = depth
+        self.loss_name = loss_name
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -56,6 +57,13 @@ class FFNTracerModel(FFNModel):
         # Set pred_mask_size = input_seed_size = input_image_size = fov_size and
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
+
+
+    def set_up_loss(self, logit_seed):
+        if self.loss_name == "sigmoid_pixelwise":
+            self.set_up_sigmoid_pixelwise_loss(logit_seed)
+        else:
+            raise NotImplementedError
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
@@ -77,7 +85,7 @@ class FFNTracerModel(FFNModel):
         self.logistic = tf.sigmoid(logit_seed)
 
         if self.labels is not None:
-            self.set_up_sigmoid_pixelwise_loss(logit_seed)
+            self.set_up_loss(logit_seed)
             self.set_up_optimizer()
             self.show_center_slice(logit_seed)
             self.show_center_slice(self.labels, sigmoid=False)
