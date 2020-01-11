@@ -105,7 +105,7 @@ class FFNTracerModel(FFNModel):
         elif self.loss_name == "ssim":
             self.set_up_ssim_loss(logit_seed)
         elif self.loss_name == "ssim_multiscale":
-
+            self.set_up_ssim_multiscale_loss(logit_seed)
         else:
             raise NotImplementedError
 
