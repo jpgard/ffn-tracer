@@ -64,14 +64,24 @@ class FFNTracerModel(FFNModel):
         assert self.labels is not None
         assert self.loss_weights is not None
 
-        # pixel_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
-        #                                                      labels=self.labels)
         pixel_loss = tf.abs(self.labels - logits)
         pixel_loss *= self.loss_weights
         self.loss = tf.reduce_mean(pixel_loss)
         tf.summary.scalar('l1_loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
-        pass
+        return
+
+    def set_up_ssim_loss(self, logits):
+        """Set up structural similarity index (SSIM) loss.
+
+        SSIM loss does not support per-pixel weighting.
+        """
+        assert self.labels is not None
+
+        self.loss = tf.image.ssim(self.labels, logits)
+        tf.summary.scalar('ssim_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+        return
 
 
     def set_up_loss(self, logit_seed):
@@ -80,6 +90,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_sigmoid_pixelwise_loss(logit_seed)
         elif self.loss_name == "l1":
             self.set_up_l1_loss(logit_seed)
+        elif self.loss_name == "ssim":
+            self.set_up_ssim_loss(logit_seed)
         else:
             raise NotImplementedError
 
