@@ -5,16 +5,18 @@ This script mostly follows the logic of the original ffn train.py script, with c
 data loading for mozak/allen institute imaging.
 
 usage:
-python train.py --tfrecord_dir ./data/tfrecords \
-    --out_dir . --coordinate_dir ./data/coords \
-     --image_mean 78 --image_stddev 20 \
-     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
-     --depth $DEPTH \
-     --learning_rate $LEARNING_RATE \
-     --fov_size 1,${FOV},${FOV} \
-     --loss_name $LOSS \
-     --max_steps 1000000 \
-     --visible_gpus=0,1
+python train.py \
+    --tfrecord_dir ./data/tfrecords \
+    --coordinate_dir ./data/coords \
+    --out_dir . \
+    --image_mean 78 --image_stddev 20 \
+    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
+    --depth $DEPTH \
+    --learning_rate $LEARNING_RATE \
+    --fov_size 1,${FOV},${FOV} \
+    --loss_name $LOSS \
+    --max_steps 1000000 \
+    --visible_gpus=0,1
 
 [with synthetic data]
 

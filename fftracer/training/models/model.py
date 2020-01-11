@@ -78,7 +78,13 @@ class FFNTracerModel(FFNModel):
         """
         assert self.labels is not None
 
-        self.loss = tf.image.ssim(self.labels, logits, max_val=1.0)
+        image_loss = tf.image.ssim(self.labels, logits, max_val=1.0)
+
+        # High values of SSIM indicate good quality, but the model will minimize loss,
+        # so we reverse the sign of loss.
+        image_loss = tf.math.negative(image_loss)
+
+        self.loss = tf.reduce_mean(image_loss)
         tf.summary.scalar('ssim_loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
@@ -89,9 +95,14 @@ class FFNTracerModel(FFNModel):
         MS-SSIM loss does not support per-pixel weighting.
         """
         assert self.labels is not None
+        image_loss = tf.image.ssim_multiscale(self.labels, logits, max_val=1.0)
 
-        self.loss = tf.image.ssim_multiscale(self.labels, logits, max_val=1.0)
-        tf.summary.scalar('ssim_multiscale_loss', self.loss)
+        # High values of MS-SSIM indicate good quality, but the model will minimize loss,
+        # so we reverse the sign of loss.
+        image_loss = tf.math.negative(image_loss)
+
+        self.loss = image_loss
+        tf.summary.scalar('ms_ssim_loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
