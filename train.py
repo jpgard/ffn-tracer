@@ -473,16 +473,19 @@ def main(argv):
             # strings; these need to be coerced to integers.
             fov_size = [int(x) for x in FLAGS.fov_size]
 
-            model = FFNTracerModel(deltas=[8, 8, 0], batch_size=FLAGS.batch_size,
+            model = FFNTracerModel(deltas=[8, 8, 0],
+                                   batch_size=FLAGS.batch_size,
                                    dim=3,
                                    fov_size=fov_size[::-1],
-                                   depth=FLAGS.depth)
+                                   depth=FLAGS.depth,
+                                   loss_name=FLAGS.loss_name)
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
             eval_tracker = EvalTracker(eval_shape_zyx)
             load_data_ops = define_data_input(model, queue_batch=1)
             prepare_ffn(model)
             merge_summaries_op = tf.summary.merge_all()
+            import ipdb;ipdb.set_trace()
 
             # if FLAGS.task == 0:
             #     save_flags()
