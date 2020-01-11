@@ -33,7 +33,7 @@ class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
     def __init__(self, deltas, batch_size=None, dim=2,
-                 fov_size=None, depth=9):
+                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise"):
         """
 
         :param deltas:
@@ -48,6 +48,7 @@ class FFNTracerModel(FFNModel):
         self.deltas = deltas
         self.batch_size = batch_size
         self.depth = depth
+        self.loss_name = loss_name
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -56,6 +57,57 @@ class FFNTracerModel(FFNModel):
         # Set pred_mask_size = input_seed_size = input_image_size = fov_size and
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
+
+
+    def set_up_l1_loss(self, logits):
+        """Set up l1 loss."""
+        assert self.labels is not None
+        assert self.loss_weights is not None
+
+        pixel_loss = tf.abs(self.labels - logits)
+        pixel_loss *= self.loss_weights
+        self.loss = tf.reduce_mean(pixel_loss)
+        tf.summary.scalar('l1_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+        return
+
+    def set_up_ssim_loss(self, logits):
+        """Set up structural similarity index (SSIM) loss.
+
+        SSIM loss does not support per-pixel weighting.
+        """
+        assert self.labels is not None
+
+        self.loss = tf.image.ssim(self.labels, logits, max_val=1.0)
+        tf.summary.scalar('ssim_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+        return
+
+    def set_up_ssim_multiscale_loss(self, logits):
+        """Set up multiscale structural similarity index (MS-SSIM) loss.
+
+        MS-SSIM loss does not support per-pixel weighting.
+        """
+        assert self.labels is not None
+
+        self.loss = tf.image.ssim_multiscale(self.labels, logits, max_val=1.0)
+        tf.summary.scalar('ssim_multiscale_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+        return
+
+
+    def set_up_loss(self, logit_seed):
+        """Set up the loss function of the model."""
+        if self.loss_name == "sigmoid_pixelwise":
+            self.set_up_sigmoid_pixelwise_loss(logit_seed)
+        elif self.loss_name == "l1":
+            self.set_up_l1_loss(logit_seed)
+        elif self.loss_name == "ssim":
+            self.set_up_ssim_loss(logit_seed)
+        elif self.loss_name == "ssim_multiscale":
+
+        else:
+            raise NotImplementedError
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
@@ -77,7 +129,7 @@ class FFNTracerModel(FFNModel):
         self.logistic = tf.sigmoid(logit_seed)
 
         if self.labels is not None:
-            self.set_up_sigmoid_pixelwise_loss(logit_seed)
+            self.set_up_loss(logit_seed)
             self.set_up_optimizer()
             self.show_center_slice(logit_seed)
             self.show_center_slice(self.labels, sigmoid=False)
