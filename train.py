@@ -485,7 +485,6 @@ def main(argv):
             load_data_ops = define_data_input(model, queue_batch=1)
             prepare_ffn(model)
             merge_summaries_op = tf.summary.merge_all()
-            import ipdb;ipdb.set_trace()
 
             # if FLAGS.task == 0:
             #     save_flags()
