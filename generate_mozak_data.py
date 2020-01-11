@@ -11,8 +11,8 @@ python generate_mozak_data.py \
     --img_dir data/img \
     --seed_csv data/seed_locations/seed_locations.csv \
     --out_dir ./data \
-    --num_training_coords 5000 \
-    --coord_margin_xy 179
+    --coord_margin_xy 179 \
+    --train_data_sampling proportional_by_dataset
 
 """
 
@@ -23,7 +23,7 @@ import os.path as osp
 
 
 def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_margin_xy,
-         img_dir=None):
+         train_data_sampling, coord_sampling_prob, img_dir=None):
     seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
     neuron_offsets = dict()
@@ -35,7 +35,9 @@ def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_marg
         # write data to a tfrecord file
         dset.write_tfrecord(out_dir)
         # write training coordinates (this does work of ffn's build_coordinates.py)
-        dset.generate_training_coordinates(out_dir, num_training_coords, coord_margin_xy)
+        dset.generate_training_coordinates(out_dir, num_training_coords, coord_margin_xy,
+                                           method=train_data_sampling,
+                                           coord_sampling_prob=coord_sampling_prob)
         # save the offets
         neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
         del dset
@@ -54,12 +56,25 @@ if __name__ == "__main__":
                         required=False)
     parser.add_argument("--seed_csv", help="csv file containing seed locations",
                         required=True)
-    parser.add_argument("--num_training_coords", help="number of training coordinates "
-                                                      "to generate",
-                        required=True, type=int)
-    parser.add_argument("--coord_margin_xy", type=int,
+    parser.add_argument("--num_training_coords",
+                        help="number of training coordinates to generate",
+                        default=5000,
+                        required=False,
+                        type=int)
+    parser.add_argument("--coord_sampling_prob",
+                        type=float,
+                        default=0.25,
+                        help="probability that each ground-truth pixel is sampled under"
+                             " proportional_by_dataset sampling strategy")
+    parser.add_argument("--coord_margin_xy",
+                        type=int,
                         help="sampled coordinates must be at least this far from image "
                              "boundaries; use (fov_size_xy - 1 // 2) + delta_xy * "
                              "fov_moves")
+    parser.add_argument("--train_data_sampling",
+                        help="method to use for sampling training data; currently "
+                             "'uniform_by_dataset', 'proportional_by_dataset' and "
+                             "'balanced_fa' are supported.",
+                        required=True)
     args = parser.parse_args()
     main(**vars(args))
