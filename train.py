@@ -6,16 +6,16 @@ data loading for mozak/allen institute imaging.
 
 usage:
 python train.py \
-    --tfrecord_dir ./data/tfrecords \
-    --coordinate_dir ./data/coords \
+    --tfrecord_dir ./data${DATA}/tfrecords \
+    --coordinate_dir ./data${DATA}/coords \
     --out_dir . \
     --image_mean 78 --image_stddev 20 \
-    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
+    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA} \
     --depth $DEPTH \
     --learning_rate $LEARNING_RATE \
     --fov_size 1,${FOV},${FOV} \
     --loss_name $LOSS \
-    --max_steps 1000000 \
+    --max_steps 10000000 \
     --visible_gpus=0,1
 
 [with synthetic data]
