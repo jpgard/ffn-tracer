@@ -18,11 +18,6 @@ python train.py \
     --max_steps 10000000 \
     --visible_gpus=0,1
 
-[with synthetic data]
-
-python train.py --tfrecord_dir ./synthetic-data/tfrecords --out_dir . \
-    --coordinate_dir ./synthetic-data/coords --image_mean 78 --image_stddev 20 \
-    --train_dir ./tmp --max_steps 10
 """
 
 from collections import deque
