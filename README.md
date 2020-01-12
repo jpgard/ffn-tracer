@@ -41,16 +41,18 @@ In order to train a ffn-tracer model, follow these steps:
     a. Initiate model training. You should determine values for `image_mean` and `image_stddev` for your data. Set the desired number of training iterations via `max_steps`.
     
     ```
-    python train.py --tfrecord_dir ./data/tfrecords \
-    --out_dir . --coordinate_dir ./data/coords \
-     --image_mean 78 --image_stddev 20 \
-     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS} \
-     --depth $DEPTH \
-     --learning_rate $LEARNING_RATE \
-     --fov_size 1,${FOV},${FOV} \
-     --loss_name $LOSS \
-     --max_steps 1000000 \
-     --visible_gpus=0,1
+python train.py \
+    --tfrecord_dir ./data${DATA}/tfrecords \
+    --coordinate_dir ./data${DATA}/coords \
+    --out_dir . \
+    --image_mean 78 --image_stddev 20 \
+    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA} \
+    --depth $DEPTH \
+    --learning_rate $LEARNING_RATE \
+    --fov_size 1,${FOV},${FOV} \
+    --loss_name $LOSS \
+    --max_steps 10000000 \
+    --visible_gpus=0,1
     ```
     
     b. (**optional, but recommended**) initiate TensorBoard to monitor training and view sample labeled images:
