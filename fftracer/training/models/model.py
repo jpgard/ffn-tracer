@@ -58,7 +58,6 @@ class FFNTracerModel(FFNModel):
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
 
-
     def set_up_l1_loss(self, logits):
         """Set up l1 loss."""
         assert self.labels is not None
@@ -95,17 +94,25 @@ class FFNTracerModel(FFNModel):
         MS-SSIM loss does not support per-pixel weighting.
         """
         assert self.labels is not None
-        image_loss = tf.image.ssim_multiscale(self.labels, logits, max_val=1.0)
+
+        # Compute the MS-SSIM; use a filter size of 4 because this is the largest
+        # filter that can run over the data with FOV = [1,49,49] without raising an
+        # error due to insufficient input size (note that default filter_size=11).
+
+        image_loss = tf.image.ssim_multiscale(self.labels, logits, max_val=1.0,
+                                              # to use original values:
+                                              # power_factors=(0.0448, 0.2856, 0.3001),
+                                              power_factors=[float(1) / 3] * 3,
+                                              filter_size=4)
 
         # High values of MS-SSIM indicate good quality, but the model will minimize loss,
         # so we reverse the sign of loss.
         image_loss = tf.math.negative(image_loss)
 
-        self.loss = image_loss
+        self.loss = tf.reduce_mean(image_loss)
         tf.summary.scalar('ms_ssim_loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
-
 
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
