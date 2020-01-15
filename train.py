@@ -10,11 +10,12 @@ python train.py \
     --coordinate_dir ./data${DATA}/coords \
     --out_dir . \
     --image_mean 78 --image_stddev 20 \
-    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA} \
+    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA}opt${OPTIMIZER} \
     --depth $DEPTH \
     --learning_rate $LEARNING_RATE \
     --fov_size 1,${FOV},${FOV} \
     --loss_name $LOSS \
+    --optimizer $OPTIMIZER \
     --max_steps 10000000 \
     --visible_gpus=0,1
 
