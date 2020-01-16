@@ -63,3 +63,13 @@ class InferenceConfig:
             min_segment_size=self.min_segment_size
         )
         return config
+
+    @property
+    def uid(self):
+        """Create a short, unique identifier, e.g. for subdirectory naming."""
+        params = {"depth": self.depth,
+                  "fov": ''.join([str(x) for x in self.fov_size.values()]),
+                  "mt": self.move_threshold,
+                  "ckpt": self.model_checkpoint_path.split("/")[-1]}
+        uid = ''.join([k + str(v) for k, v in params.items()])
+        return uid
