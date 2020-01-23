@@ -64,6 +64,10 @@ class FFNTracerModel(FFNModel):
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
 
+    def alpha_weight_losses(self, loss_a, loss_b):
+        """Compute the scheduled alpha-weighted combination of loss_a and loss_b."""
+        pass
+
     def set_up_l1_loss(self, logits):
         """Set up l1 loss."""
         assert self.labels is not None
@@ -166,8 +170,10 @@ class FFNTracerModel(FFNModel):
         # loss. The alpha scheduling this is a hockey-stick shaped decay where the
         # contribution of the ce_loss bottoms out after reaching 0.01. This happens in
         # (1 - 0.01)/alpha = 990,000 epochs (using a min alpha of 0.01 and alpha = 1e-6).
-
-        alpha = max(1 - self.alpha * self.global_step, 0.01)
+        alpha = tf.maximum(
+            1. - self.alpha * tf.cast(self.global_step, tf.float32),
+            0.01
+        )
         self.loss = (alpha * batch_ce_loss) + (1. - alpha) * batch_boundary_loss
         tf.summary.scalar("alpha_loss", self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
