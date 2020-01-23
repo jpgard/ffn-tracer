@@ -56,7 +56,7 @@ flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files 
 flags.DEFINE_string("out_dir", None, "directory to save to")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_enum("loss_name", "sigmoid_pixelwise",
-                  ["sigmoid_pixelwise", "l1", "ssim", "ms_ssim"],
+                  ["sigmoid_pixelwise", "l1", "ssim", "ms_ssim", "boundary"],
                   "the loss function to use")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
 flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
