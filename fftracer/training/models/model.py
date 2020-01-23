@@ -37,7 +37,7 @@ class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
     def __init__(self, deltas, batch_size=None, dim=2,
-                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise"):
+                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6):
         """
 
         :param deltas:
@@ -47,12 +47,14 @@ class FFNTracerModel(FFNModel):
         :param depth: number of convolutional layers.
         """
         self.dim = dim
+        assert (0 < alpha < 1), "alpha must be in range (0,1)"
         super(FFNTracerModel, self).__init__(deltas, batch_size)
 
         self.deltas = deltas
         self.batch_size = batch_size
         self.depth = depth
         self.loss_name = loss_name
+        self.alpha = alpha
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -124,6 +126,8 @@ class FFNTracerModel(FFNModel):
         Code based on initial implementation at link within the official repo:
         https://github.com/LIVIAETS/surface-loss/issues/14#issuecomment-546342163
         """
+        assert self.labels is not None
+        assert self.loss_weights is not None
 
         def calc_dist_map(seg):
             """Calculate the distance map for a ground truth segmentation."""
@@ -143,15 +147,29 @@ class FFNTracerModel(FFNModel):
             return np.array([calc_dist_map(y)
                              for y in y_true_numpy]).astype(np.float32)
 
+        # Compute the boundary loss
         y_true_dist_map = tf.py_function(func=calc_dist_map_batch,
                                          inp=[self.labels],
                                          Tout=tf.float32)
-        batch_loss = tf.math.multiply(logits, y_true_dist_map, "SurfaceLoss")
-        boundary_loss = tf.reduce_mean(batch_loss)
-        # TODO(jpgard): add alpha-scheduling here to use cross-entropy and
-        #  progressively switch over to boundary loss.
-        self.loss = boundary_loss
-        tf.summary.scalar("boundary_loss", self.loss)
+        boundary_loss = tf.math.multiply(logits, y_true_dist_map, "SurfaceLoss")
+        batch_boundary_loss = tf.reduce_mean(boundary_loss)
+        tf.summary.scalar('boundary_loss', batch_boundary_loss)
+
+        # Compute the pixel-wise cross entropy loss
+        pixel_ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
+                                                             labels=self.labels)
+        pixel_ce_loss *= self.loss_weights
+        batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        tf.summary.scalar('pixel_loss', batch_ce_loss)
+
+        # Compute the scheduled alpha, then apply it to compute the total weighted
+        # loss. The alpha scheduling this is a hockey-stick shaped decay where the
+        # contribution of the ce_loss bottoms out after reaching 0.01. This happens in
+        # (1 - 0.01)/alpha = 990,000 epochs (using a min alpha of 0.01 and alpha = 1e-6).
+
+        alpha = max(1 - self.alpha * self.global_step, 0.01)
+        self.loss = (alpha * batch_ce_loss) + (1. - alpha) * batch_boundary_loss
+        tf.summary.scalar("alpha_loss", self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
     def set_up_loss(self, logit_seed):
