@@ -1,5 +1,9 @@
 """Classes for FFN model definition."""
 
+import numpy as np
+
+from scipy.ndimage import distance_transform_edt as distance
+
 from ffn.training.model import FFNModel
 import tensorflow as tf
 
@@ -114,6 +118,42 @@ class FFNTracerModel(FFNModel):
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
+    def set_up_boundary_loss(self, logits):
+        """Based on 'Boundary Loss for Highly Unbalanced Segmentation', Kervadec et al.
+
+        Code based on initial implementation at link within the official repo:
+        https://github.com/LIVIAETS/surface-loss/issues/14#issuecomment-546342163
+        """
+
+        def calc_dist_map(seg):
+            """Calculate the distance map for a ground truth segmentation."""
+            res = np.zeros_like(seg)
+            # Form a boolean mask from "soft" labels, which are set to 0.95 for FFN.
+            posmask = (seg > 0.95).astype(np.bool)
+
+            if posmask.any():
+                negmask = ~posmask
+                res = distance(negmask) * negmask - (distance(posmask) - 1) * posmask
+
+            return res
+
+        def calc_dist_map_batch(y_true):
+            """Calculate the distance map for the batch."""
+            y_true_numpy = y_true.numpy()
+            return np.array([calc_dist_map(y)
+                             for y in y_true_numpy]).astype(np.float32)
+
+        y_true_dist_map = tf.py_function(func=calc_dist_map_batch,
+                                         inp=[self.labels],
+                                         Tout=tf.float32)
+        batch_loss = tf.math.multiply(logits, y_true_dist_map, "SurfaceLoss")
+        boundary_loss = tf.reduce_mean(batch_loss)
+        # TODO(jpgard): add alpha-scheduling here to use cross-entropy and
+        #  progressively switch over to boundary loss.
+        self.loss = boundary_loss
+        tf.summary.scalar("boundary_loss", self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
         if self.loss_name == "sigmoid_pixelwise":
@@ -124,6 +164,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_ssim_loss(logit_seed)
         elif self.loss_name == "ms_ssim":
             self.set_up_ms_ssim_loss(logit_seed)
+        elif self.loss_name == "boundary":
+            self.set_up_boundary_loss(logit_seed)
         else:
             raise NotImplementedError
 
