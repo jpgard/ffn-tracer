@@ -150,7 +150,7 @@ class FFNTracerModel(FFNModel):
             """Calculate the distance map for a ground truth segmentation."""
             res = np.zeros_like(seg)
             # Form a boolean mask from "soft" labels, which are set to 0.95 for FFN.
-            posmask = (seg > 0.95).astype(np.bool)
+            posmask = (seg >= 0.95).astype(np.bool)
 
             if posmask.any():
                 negmask = ~posmask
@@ -165,7 +165,7 @@ class FFNTracerModel(FFNModel):
                              for y in y_true_numpy]).astype(np.float32)
 
         # Compute the boundary loss
-        y_true_dist_map = tf.py_function(func=calc_dist_map_batch,
+        y_true_dist_map = tf.py_func(func=calc_dist_map_batch,
                                          inp=[self.labels],
                                          Tout=tf.float32)
         boundary_loss = tf.math.multiply(logits, y_true_dist_map, "SurfaceLoss")
