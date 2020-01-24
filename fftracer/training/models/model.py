@@ -66,6 +66,16 @@ class FFNTracerModel(FFNModel):
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
 
+    def compute_sce_loss(self, logits):
+        """Compute the pixelwise sigmoid cross-entropy loss using logits and labels."""
+        assert self.labels is not None
+        assert self.loss_weights is not None
+        pixel_ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
+                                                                labels=self.labels)
+        pixel_ce_loss *= self.loss_weights
+        batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        return batch_ce_loss
+
     def alpha_weight_losses(self, loss_a, loss_b):
         """Compute alpha * loss_a + (1 - alpha) loss_b and set to self.loss.
 
@@ -74,7 +84,6 @@ class FFNTracerModel(FFNModel):
         contribution of the ce_loss bottoms out after reaching 0.01. This happens in
         (1 - 0.01)/alpha = 990,000 epochs (using a min alpha of 0.01 and alpha = 1e-6).
         """
-
         alpha = tf.maximum(
             1. - self.alpha * tf.cast(self.global_step, tf.float32),
             0.01
@@ -102,14 +111,21 @@ class FFNTracerModel(FFNModel):
         """
         assert self.labels is not None
 
-        image_loss = tf.image.ssim(self.labels, logits, max_val=1.0)
+        ssim_loss = tf.image.ssim(self.labels, logits, max_val=1.0)
 
         # High values of SSIM indicate good quality, but the model will minimize loss,
         # so we reverse the sign of loss.
-        image_loss = tf.math.negative(image_loss)
+        ssim_loss = tf.math.negative(ssim_loss)
 
-        self.loss = tf.reduce_mean(image_loss)
-        tf.summary.scalar('ssim_loss', self.loss)
+        batch_ssim_loss = tf.reduce_mean(ssim_loss)
+        tf.summary.scalar('ssim_loss', batch_ssim_loss)
+
+        # Compute the pixel-wise cross entropy loss
+        batch_ce_loss = self.compute_sce_loss(logits)
+        tf.summary.scalar('pixel_loss', batch_ce_loss)
+
+        self.alpha_weight_losses(batch_ce_loss, batch_ssim_loss)
+
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
@@ -118,6 +134,10 @@ class FFNTracerModel(FFNModel):
 
         MS-SSIM loss does not support per-pixel weighting.
         """
+        # TODO(jpgard): try updating this to use https://github.com/andrewekhalel/sewar
+        #  imlpementation of ssim instead of tf.image version; this currently leads to
+        #  some kind of error.
+
         assert self.labels is not None
 
         # Compute the MS-SSIM; use a filter size of 4 because this is the largest
@@ -179,10 +199,8 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('boundary_loss', batch_boundary_loss)
 
         # Compute the pixel-wise cross entropy loss
-        pixel_ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
-                                                                labels=self.labels)
-        pixel_ce_loss *= self.loss_weights
-        batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        batch_ce_loss = self.compute_sce_loss(logits)
+
         tf.summary.scalar('pixel_loss', batch_ce_loss)
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
