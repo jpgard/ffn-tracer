@@ -8,7 +8,6 @@ usage:
 python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
-    --out_dir . \
     --image_mean 78 --image_stddev 20 \
     --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA}opt${OPTIMIZER} \
     --depth $DEPTH \
@@ -53,7 +52,6 @@ flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of
                                           "labeled input data volumes")
 flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
                                             "patch coodinates")
-flags.DEFINE_string("out_dir", None, "directory to save to")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_enum("loss_name", "sigmoid_pixelwise",
                   ["sigmoid_pixelwise", "l1", "ssim", "ms_ssim", "boundary"],
