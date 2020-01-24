@@ -1,6 +1,7 @@
 """Classes for FFN model definition."""
 
 import numpy as np
+import math
 
 from scipy.ndimage import distance_transform_edt as distance
 
@@ -55,6 +56,7 @@ class FFNTracerModel(FFNModel):
         self.depth = depth
         self.loss_name = loss_name
         self.alpha = alpha
+        self.fov_size = fov_size
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -145,17 +147,22 @@ class FFNTracerModel(FFNModel):
         """
         assert self.labels is not None
         assert self.loss_weights is not None
+        # Compute the maximum euclidean distance for the model FOV size; this is used
+        # to normalize the boundary loss and constrain it to the range (0,1) so it does
+        # not dominate the loss function (otherwise boundary loss can take extreme
+        # values, particularly as image size grows).
+        max_dist = math.sqrt((self.fov_size[0] - 1)**2 +
+                             (self.fov_size[1] - 1)**2 +
+                             (self.fov_size[2] - 1)**2)
 
         def calc_dist_map(seg):
             """Calculate the distance map for a ground truth segmentation."""
-            res = np.zeros_like(seg)
             # Form a boolean mask from "soft" labels, which are set to 0.95 for FFN.
             posmask = (seg >= 0.95).astype(np.bool)
-
-            if posmask.any():
-                negmask = ~posmask
-                res = distance(negmask) * negmask - (distance(posmask) - 1) * posmask
-
+            assert posmask.any(), "ground truth must contain at least one active voxel"
+            negmask = ~posmask
+            res = distance(negmask) * negmask - (distance(posmask) - 1) * posmask
+            res /= max_dist
             return res
 
         def calc_dist_map_batch(y_true):
