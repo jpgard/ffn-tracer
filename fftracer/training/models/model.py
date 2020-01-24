@@ -160,9 +160,8 @@ class FFNTracerModel(FFNModel):
 
         def calc_dist_map_batch(y_true):
             """Calculate the distance map for the batch."""
-            y_true_numpy = y_true.numpy()
             return np.array([calc_dist_map(y)
-                             for y in y_true_numpy]).astype(np.float32)
+                             for y in y_true]).astype(np.float32)
 
         # Compute the boundary loss
         y_true_dist_map = tf.py_func(func=calc_dist_map_batch,
