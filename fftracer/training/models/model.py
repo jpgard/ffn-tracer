@@ -84,7 +84,6 @@ class FFNTracerModel(FFNModel):
         contribution of the ce_loss bottoms out after reaching 0.01. This happens in
         (1 - 0.01)/alpha = 990,000 epochs (using a min alpha of 0.01 and alpha = 1e-6).
         """
-
         alpha = tf.maximum(
             1. - self.alpha * tf.cast(self.global_step, tf.float32),
             0.01
@@ -112,14 +111,21 @@ class FFNTracerModel(FFNModel):
         """
         assert self.labels is not None
 
-        image_loss = tf.image.ssim(self.labels, logits, max_val=1.0)
+        ssim_loss = tf.image.ssim(self.labels, logits, max_val=1.0)
 
         # High values of SSIM indicate good quality, but the model will minimize loss,
         # so we reverse the sign of loss.
-        image_loss = tf.math.negative(image_loss)
+        ssim_loss = tf.math.negative(ssim_loss)
 
-        self.loss = tf.reduce_mean(image_loss)
-        tf.summary.scalar('ssim_loss', self.loss)
+        batch_ssim_loss = tf.reduce_mean(ssim_loss)
+        tf.summary.scalar('ssim_loss', batch_ssim_loss)
+
+        # Compute the pixel-wise cross entropy loss
+        batch_ce_loss = self.compute_sce_loss(logits)
+        tf.summary.scalar('pixel_loss', batch_ce_loss)
+
+        self.alpha_weight_losses(batch_ce_loss, batch_ssim_loss)
+
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
