@@ -134,6 +134,10 @@ class FFNTracerModel(FFNModel):
 
         MS-SSIM loss does not support per-pixel weighting.
         """
+        # TODO(jpgard): try updating this to use https://github.com/andrewekhalel/sewar
+        #  imlpementation of ssim instead of tf.image version; this currently leads to
+        #  some kind of error.
+
         assert self.labels is not None
 
         # Compute the MS-SSIM; use a filter size of 4 because this is the largest
