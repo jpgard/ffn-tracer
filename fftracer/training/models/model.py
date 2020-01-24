@@ -66,6 +66,16 @@ class FFNTracerModel(FFNModel):
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
 
+    def compute_sce_loss(self, logits):
+        """Compute the pixelwise sigmoid cross-entropy loss using logits and labels."""
+        assert self.labels is not None
+        assert self.loss_weights is not None
+        pixel_ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
+                                                                labels=self.labels)
+        pixel_ce_loss *= self.loss_weights
+        batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        return batch_ce_loss
+
     def alpha_weight_losses(self, loss_a, loss_b):
         """Compute alpha * loss_a + (1 - alpha) loss_b and set to self.loss.
 
@@ -179,10 +189,8 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('boundary_loss', batch_boundary_loss)
 
         # Compute the pixel-wise cross entropy loss
-        pixel_ce_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
-                                                                labels=self.labels)
-        pixel_ce_loss *= self.loss_weights
-        batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        batch_ce_loss = self.compute_sce_loss(logits)
+
         tf.summary.scalar('pixel_loss', batch_ce_loss)
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
