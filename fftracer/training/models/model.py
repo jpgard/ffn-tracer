@@ -1,5 +1,6 @@
 """Classes for FFN model definition."""
 
+import logging
 import numpy as np
 import math
 
@@ -48,7 +49,11 @@ class FFNTracerModel(FFNModel):
         attribute, for historical reasons).
         :param depth: number of convolutional layers.
         """
-        fov_size = [int(x) for x in fov_size]
+        try:
+            fov_size = [int(x) for x in fov_size]
+            alpha = float(alpha)
+        except Exception as e:
+            logging.error("error parsing FFNTracerModel argument: {}".format(e))
 
         self.dim = dim
         assert (0 < alpha < 1), "alpha must be in range (0,1)"
