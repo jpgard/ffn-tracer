@@ -9,20 +9,21 @@ python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
-    --depth $DEPTH \
     --learning_rate $LEARNING_RATE \
-    --fov_size 1,${FOV},${FOV} \
     --loss_name $LOSS \
     --optimizer $OPTIMIZER \
     --max_steps 10000000 \
-    --visible_gpus=0,1
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [1, ${FOV}, ${FOV}], \"deltas\": [8, 8, 0]}"
+    --visible_gpus=0,1 \
 
 """
 
 from collections import deque
 from functools import partial
 import itertools
+import json
 import logging
+import os
 import random
 import time
 
@@ -43,6 +44,7 @@ from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training.evaluation import EvalTracker
 from fftracer.utils.debugging import write_patch_and_label_to_img
+from fftracer.utils.flags import uid_from_flags
 
 FLAGS = flags.FLAGS
 
@@ -69,10 +71,10 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
 
-flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
+# flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 
 # Training infra options (from ffn train.py).
-flags.DEFINE_string('train_dir', './training-logs',
+flags.DEFINE_string('train_base_dir', './training-logs',
                     'Path where checkpoints and other data will be saved into a unique '
                     'subdirectory based on experiment hyperparameters.')
 flags.DEFINE_string('master', '', 'Network address of the master.')
@@ -89,6 +91,9 @@ flags.DEFINE_integer('summary_rate_secs', 120,
                      'How often to save summaries (in seconds).')
 
 # FFN training options (from ffn train.py).
+flags.DEFINE_string('model_args', None,
+                    'JSON string with arguments to be passed to the model '
+                    'constructor.')
 flags.DEFINE_float('seed_pad', 0.05,
                    'Value to use for the unknown area of the seed.')
 flags.DEFINE_float('threshold', 0.9,
@@ -452,6 +457,8 @@ def prepare_ffn(model):
 
 
 def main(argv):
+    train_dir = os.path.join(FLAGS.train_base_dir, uid_from_flags(FLAGS))
+    import ipdb;ipdb.set_trace()
     with tf.Graph().as_default():
         with tf.device(
                 tf.train.replica_device_setter(FLAGS.ps_tasks, merge_devices=True)):
@@ -467,14 +474,10 @@ def main(argv):
 
             # If fov_size is specified at command line, it will be stored as a list of
             # strings; these need to be coerced to integers.
-            fov_size = [int(x) for x in FLAGS.fov_size]
 
-            model = FFNTracerModel(deltas=[8, 8, 0],
-                                   batch_size=FLAGS.batch_size,
-                                   dim=3,
-                                   fov_size=fov_size[::-1],
-                                   depth=FLAGS.depth,
-                                   loss_name=FLAGS.loss_name)
+            model = FFNTracerModel(batch_size=FLAGS.batch_size,
+                                   loss_name=FLAGS.loss_name,
+                                   **json.loads(FLAGS.model_args))
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
             eval_tracker = EvalTracker(eval_shape_zyx)
@@ -501,7 +504,7 @@ def main(argv):
                             visible_device_list=FLAGS.visible_gpus
                         )
                     ),
-                    checkpoint_dir=FLAGS.train_dir,
+                    checkpoint_dir=train_dir,
                     scaffold=scaffold) as sess:
 
                 eval_tracker.sess = sess
@@ -515,7 +518,7 @@ def main(argv):
                         time.sleep(5.0)
                         step = int(sess.run(model.global_step))
                 else:
-                    summary_writer = tf.summary.FileWriterCache.get(FLAGS.train_dir)
+                    summary_writer = tf.summary.FileWriterCache.get(train_dir)
                     summary_writer.add_session_log(
                         tf.summary.SessionLog(status=tf.summary.SessionLog.START), step)
 
