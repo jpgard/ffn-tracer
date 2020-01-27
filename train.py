@@ -9,7 +9,6 @@ python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
-    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA}opt${OPTIMIZER} \
     --depth $DEPTH \
     --learning_rate $LEARNING_RATE \
     --fov_size 1,${FOV},${FOV} \
@@ -54,7 +53,7 @@ flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files 
                                             "patch coodinates")
 flags.DEFINE_integer("depth", 9, "number of residual blocks in model")
 flags.DEFINE_enum("loss_name", "sigmoid_pixelwise",
-                  ["sigmoid_pixelwise", "l1", "ssim", "ms_ssim", "boundary"],
+                  ["sigmoid_pixelwise", "l1", "ssim", "ms_ssim", "boundary", "gdl"],
                   "the loss function to use")
 flags.DEFINE_boolean("debug", False, "produces debugging output")
 flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
@@ -73,8 +72,9 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
 flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 
 # Training infra options (from ffn train.py).
-flags.DEFINE_string('train_dir', '/tmp',
-                    'Path where checkpoints and other data will be saved.')
+flags.DEFINE_string('train_dir', './training-logs',
+                    'Path where checkpoints and other data will be saved into a unique '
+                    'subdirectory based on experiment hyperparameters.')
 flags.DEFINE_string('master', '', 'Network address of the master.')
 flags.DEFINE_integer('batch_size', 4, 'Number of images in a batch.')
 flags.DEFINE_integer('task', 0, 'Task id of the replica running the training.')
