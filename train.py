@@ -9,10 +9,8 @@ python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
-    --learning_rate $LEARNING_RATE \
-    --optimizer $OPTIMIZER \
     --max_steps 10000000 \
-    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": $ALPHA"} \
     --visible_gpus=0,1
 
 """
