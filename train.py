@@ -12,7 +12,7 @@ python train.py \
     --learning_rate $LEARNING_RATE \
     --optimizer $OPTIMIZER \
     --max_steps 10000000 \
-    --model_args "{\"depth\": $DEPTH, \"fov_size\": [1, ${FOV}, ${FOV}], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
     --visible_gpus=0,1 \
 
 """

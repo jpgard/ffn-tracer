@@ -45,8 +45,7 @@ class FFNTracerModel(FFNModel):
         :param deltas:
         :param batch_size:
         :param dim: number of dimensions of model prediction (e.g. 2 = 2D input/output)
-        :param fov_size: [z,y,x] fov size (this is reversed when stored as the class
-        attribute, for historical reasons).
+        :param fov_size: [x,y,z] fov size.
         :param depth: number of convolutional layers.
         """
         try:
@@ -64,7 +63,7 @@ class FFNTracerModel(FFNModel):
         self.depth = depth
         self.loss_name = loss_name
         self.alpha = alpha
-        self.fov_size = fov_size[::-1]
+        self.fov_size = fov_size
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
