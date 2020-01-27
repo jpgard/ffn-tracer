@@ -1,5 +1,6 @@
 """Classes for FFN model definition."""
 
+import logging
 import numpy as np
 import math
 
@@ -37,7 +38,7 @@ def _predict_object_mask_2d(net, depth=9):
 class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
-    def __init__(self, deltas, batch_size=None, dim=2,
+    def __init__(self, deltas, batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6):
         """
 
@@ -47,6 +48,12 @@ class FFNTracerModel(FFNModel):
         :param fov_size: [x,y,z] fov size.
         :param depth: number of convolutional layers.
         """
+        try:
+            fov_size = [int(x) for x in fov_size]
+            alpha = float(alpha)
+        except Exception as e:
+            logging.error("error parsing FFNTracerModel argument: {}".format(e))
+
         self.dim = dim
         assert (0 < alpha < 1), "alpha must be in range (0,1)"
         super(FFNTracerModel, self).__init__(deltas, batch_size)
@@ -205,6 +212,14 @@ class FFNTracerModel(FFNModel):
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
 
+    def set_up_generalized_dice_loss(self, logits):
+        """Apply the Generalized Dice Loss from https://arxiv.org/pdf/1707.03237.pdf"""
+        from niftynet.layer.loss_segmentation import generalised_dice_loss as gdl
+        dice_loss = gdl(logits, self.labels)
+        dice_loss_batch = tf.reduce_mean(dice_loss)
+        import ipdb;ipdb.set_trace()
+
+
 
 
     def set_up_loss(self, logit_seed):
@@ -219,6 +234,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_ms_ssim_loss(logit_seed)
         elif self.loss_name == "boundary":
             self.set_up_boundary_loss(logit_seed)
+        elif self.loss_name == "gdl":
+            self.set_up_generalized_dice_loss(logit_seed)
         else:
             raise NotImplementedError
 
