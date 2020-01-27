@@ -465,12 +465,8 @@ def main(argv):
             # The constructor might define TF ops/placeholders, so it is important
             # that the FFN is instantiated within the current context.
 
-            # TODO(jpgard): toggle model dim 2 vs. 3; currently set to 3 to avoid mismatch
-            #  between seed and data tensors during batching in get_example() but
-            #  leads to other downstream errors. Optionally, leave it as 3 and continue
-            #  to correct the scripts, because eventually we will load truly 3D data.
-
-            # Note: all inputs to ffn.training.model.FFNModel are in format (x, y, z).
+            # Note: all inputs to ffn.training.model.FFNModel are in format (x, y, z),
+            # except the fov_size, for historical reasons.
 
             # If fov_size is specified at command line, it will be stored as a list of
             # strings; these need to be coerced to integers.
