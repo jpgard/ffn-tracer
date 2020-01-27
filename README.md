@@ -44,15 +44,11 @@ In order to train a ffn-tracer model, follow these steps:
 python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
-    --out_dir . \
     --image_mean 78 --image_stddev 20 \
-    --train_dir ./training-logs/lr${LEARNING_RATE}depth${DEPTH}fov${FOV}loss${LOSS}data${DATA}opt${OPTIMIZER} \
-    --depth $DEPTH \
     --learning_rate $LEARNING_RATE \
-    --fov_size 1,${FOV},${FOV} \
-    --loss_name $LOSS \
     --optimizer $OPTIMIZER \
     --max_steps 10000000 \
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
     --visible_gpus=0,1
     ```
     

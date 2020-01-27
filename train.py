@@ -13,7 +13,7 @@ python train.py \
     --optimizer $OPTIMIZER \
     --max_steps 10000000 \
     --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
-    --visible_gpus=0,1 \
+    --visible_gpus=0,1
 
 """
 
