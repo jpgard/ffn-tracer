@@ -422,11 +422,6 @@ def define_data_input(model, queue_batch=None):
     ## will be hidden behind a queue, so expensive/slow ops can take advantage
     ## of multithreading.
 
-    # TODO(jpgard): it looks like the ground truth labels are being loaded as a single
-    #  point instead of the full GT trace of the corresponding region (this is shown by
-    #  examining the images in tensorboard, which show trace and GT mask side-by-side).
-    #  Figure out why this is happening, and fix it.
-
     patches, labels, loss_weights = tf.train.shuffle_batch(
         [patch, labels, loss_weights],
         queue_batch,
