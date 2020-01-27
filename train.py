@@ -10,10 +10,9 @@ python train.py \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
     --learning_rate $LEARNING_RATE \
-    --loss_name $LOSS \
     --optimizer $OPTIMIZER \
     --max_steps 10000000 \
-    --model_args "{\"depth\": $DEPTH, \"fov_size\": [1, ${FOV}, ${FOV}], \"deltas\": [8, 8, 0]}"
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [1, ${FOV}, ${FOV}], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"alpha\": 1e-6"} \
     --visible_gpus=0,1 \
 
 """
@@ -457,8 +456,8 @@ def prepare_ffn(model):
 
 
 def main(argv):
-    train_dir = os.path.join(FLAGS.train_base_dir, uid_from_flags(FLAGS))
-    import ipdb;ipdb.set_trace()
+    experiment_uid = uid_from_flags(FLAGS)
+    train_dir = os.path.join(FLAGS.train_base_dir, experiment_uid)
     with tf.Graph().as_default():
         with tf.device(
                 tf.train.replica_device_setter(FLAGS.ps_tasks, merge_devices=True)):
@@ -472,7 +471,6 @@ def main(argv):
             # strings; these need to be coerced to integers.
 
             model = FFNTracerModel(batch_size=FLAGS.batch_size,
-                                   loss_name=FLAGS.loss_name,
                                    **json.loads(FLAGS.model_args))
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
