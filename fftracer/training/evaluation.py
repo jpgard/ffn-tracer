@@ -45,7 +45,7 @@ class EvalTracker(object):
         self.images_xz = deque(maxlen=16)
         self.images_yz = deque(maxlen=16)
 
-    def slice_image(self, labels, predicted, weights, slice_axis):
+    def slice_image(self, labels, predicted, weights, inputs, slice_axis):
         """Builds a tf.Summary showing a slice of an object mask.
 
         The object mask slice is shown side by side with the corresponding
@@ -55,6 +55,7 @@ class EvalTracker(object):
           labels: ndarray of ground truth data, shape [1, z, y, x, 1]
           predicted: ndarray of predicted data, shape [1, z, y, x, 1]
           weights: ndarray of loss weights, shape [1, z, y, x, 1]
+          inputs: ndarray of input images, shape [1, z, y, x, 1]
           slice_axis: axis in the middle of which to place the cutting plane
               for which the summary image will be generated, valid values are
               2 ('x'), 1 ('y'), and 0 ('z').
@@ -74,9 +75,10 @@ class EvalTracker(object):
         labels = (labels[selector] * 255).astype(np.uint8)
         predicted = (predicted[selector] * 255).astype(np.uint8)
         weights = (weights[selector] * 255).astype(np.uint8)
+        inputs = (inputs[selector] * 255).astype(np.uint8)
 
         im = PIL.Image.fromarray(np.concatenate([labels, predicted,
-                                                 weights], axis=1), 'L')
+                                                 weights, inputs], axis=1), 'L')
         im.save(buf, 'PNG')
 
         axis_names = 'zyx'
@@ -94,6 +96,7 @@ class EvalTracker(object):
         predicted = mask.crop_and_pad(predicted, (0, 0, 0), self._eval_shape)
         weights = mask.crop_and_pad(weights, (0, 0, 0), self._eval_shape)
         labels = mask.crop_and_pad(labels, (0, 0, 0), self._eval_shape)
+        inputs = mask.crop_and_pad(patches, (0, 0, 0), self._eval_shape)
         loss, = self.sess.run([self.eval_loss], {self.eval_labels: labels,
                                                  self.eval_preds: predicted})
         self.loss += loss
@@ -112,9 +115,9 @@ class EvalTracker(object):
         self.num_patches += 1
 
         predicted = expit(predicted)
-        self.images_xy.append(self.slice_image(labels, predicted, weights, 0))
-        self.images_xz.append(self.slice_image(labels, predicted, weights, 1))
-        self.images_yz.append(self.slice_image(labels, predicted, weights, 2))
+        self.images_xy.append(self.slice_image(labels, predicted, weights, inputs, 0))
+        self.images_xz.append(self.slice_image(labels, predicted, weights, inputs, 1))
+        self.images_yz.append(self.slice_image(labels, predicted, weights, inputs, 2))
 
     def get_summaries(self):
         """Gathers tensorflow summaries into single list."""
