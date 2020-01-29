@@ -223,8 +223,8 @@ class FFNTracerModel(FFNModel):
         # Compute the pixel-wise cross entropy loss
         batch_ce_loss = self.compute_sce_loss(logits)
         tf.summary.scalar('pixel_loss', batch_ce_loss)
-        row_wise_logits = tf.reshape(logits, -1)
-        column_wise_logits = tf.reshape(tf.transpose(logits), -1)
+        row_wise_logits = tf.reshape(logits, [-1], 'FlattenRowWise')
+        column_wise_logits = tf.reshape(tf.transpose(logits), [-1], 'FlattenColWise')
         # Compute the l1 continuity loss row-wise, subtracting each element from the
         # next element row-wise
         row_loss = row_wise_logits - tf.concat([row_wise_logits[1:], [0,]], 0)
@@ -234,10 +234,10 @@ class FFNTracerModel(FFNModel):
         column_loss = tf.abs(column_loss)
         continuity_loss = row_loss + column_loss
         batch_continuity_loss = tf.reduce_mean(continuity_loss)
-        tf.summary.scalar('continuity_loss')
+        tf.summary.scalar('continuity_loss', batch_continuity_loss)
         # Combine the losses to compute the total loss.
         self.loss = batch_ce_loss + self.l1lambda * batch_continuity_loss
-        tf.summary.scalar("loss", self.loss)
+        tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
     def set_up_loss(self, logit_seed):
