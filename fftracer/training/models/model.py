@@ -39,7 +39,8 @@ class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
     def __init__(self, deltas, batch_size=None, dim=3,
-                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6):
+                 fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
+                 l1lambda=1e-3):
         """
 
         :param deltas:
@@ -64,6 +65,7 @@ class FFNTracerModel(FFNModel):
         self.loss_name = loss_name
         self.alpha = alpha
         self.fov_size = fov_size
+        self.l1lambda = l1lambda
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -212,7 +214,31 @@ class FFNTracerModel(FFNModel):
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
 
+    def set_up_l1_continuity_loss(self, logits):
+        """Sets up the l1 continuity loss.
 
+        L1 continuity loss uses the normal cross-entropy loss with a regularizer which
+        enforces 'contnuity' between pixels.
+        """
+        # Compute the pixel-wise cross entropy loss
+        batch_ce_loss = self.compute_sce_loss(logits)
+        tf.summary.scalar('pixel_loss', batch_ce_loss)
+        row_wise_logits = tf.reshape(logits, -1)
+        column_wise_logits = tf.reshape(tf.transpose(logits), -1)
+        # Compute the l1 continuity loss row-wise, subtracting each element from the
+        # next element row-wise
+        row_loss = row_wise_logits - tf.concat([row_wise_logits[1:], [0,]], 0)
+        row_loss = tf.abs(row_loss)
+        # Compute the l1 continuity loss column-wise.
+        column_loss = column_wise_logits - tf.concat([column_wise_logits[1:], [0, ]], 0)
+        column_loss = tf.abs(column_loss)
+        continuity_loss = row_loss + column_loss
+        batch_continuity_loss = tf.reduce_mean(continuity_loss)
+        tf.summary.scalar('continuity_loss')
+        # Combine the losses to compute the total loss.
+        self.loss = batch_ce_loss + self.l1lambda * batch_continuity_loss
+        tf.summary.scalar("loss", self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
@@ -220,6 +246,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_sigmoid_pixelwise_loss(logit_seed)
         elif self.loss_name == "l1":
             self.set_up_l1_loss(logit_seed)
+        elif self.loss_name == "l1_continuity":
+            self.set_up_l1_continuity_loss(logit_seed)
         elif self.loss_name == "ssim":
             self.set_up_ssim_loss(logit_seed)
         elif self.loss_name == "ms_ssim":
