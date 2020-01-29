@@ -212,14 +212,6 @@ class FFNTracerModel(FFNModel):
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
 
-    def set_up_generalized_dice_loss(self, logits):
-        """Apply the Generalized Dice Loss from https://arxiv.org/pdf/1707.03237.pdf"""
-        from niftynet.layer.loss_segmentation import generalised_dice_loss as gdl
-        dice_loss = gdl(logits, self.labels)
-        dice_loss_batch = tf.reduce_mean(dice_loss)
-        import ipdb;ipdb.set_trace()
-
-
 
 
     def set_up_loss(self, logit_seed):
@@ -234,8 +226,6 @@ class FFNTracerModel(FFNModel):
             self.set_up_ms_ssim_loss(logit_seed)
         elif self.loss_name == "boundary":
             self.set_up_boundary_loss(logit_seed)
-        elif self.loss_name == "gdl":
-            self.set_up_generalized_dice_loss(logit_seed)
         else:
             raise NotImplementedError
 
