@@ -10,10 +10,10 @@ python train.py \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
     --max_steps 10000000 \
-    --model_args "{\"depth\": $DEPTH, \"optimizer\": $OPTIMIZER, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"l1lambda\": $LAMBDA"} \
+    --optimizer $OPTIMIZER \
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER"} \
     --visible_gpus=0,1
 
-\"optimizer\": $OPTIMIZER
 """
 
 from collections import deque

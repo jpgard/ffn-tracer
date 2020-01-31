@@ -7,14 +7,24 @@ import math
 from scipy.ndimage import distance_transform_edt as distance
 
 from ffn.training.model import FFNModel
+from fftracer.training.self_attention.non_local import sn_non_local_block_sim
 import tensorflow as tf
 
 
-def _predict_object_mask_2d(net, depth=9):
-    """Computes single-object mask prediction for 2d using a 3d conv with 3x3x1 kernel.
-
-    Modified from ffn.training.models.convstack_3d .
+def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
     """
+    Computes single-object mask prediction for 2d.
+
+    Modified from ffn.training.models.convstack_3d.
+    :param net: the network input; for FFN this is a concatenation of the input image
+    patch and the current POM.
+    :param depth: number of residual blocks to use.
+    :param self_attention_index: use a self-attention block instead of a normal
+    residual block at this layer, if specified.
+    :return: the model logits corresponding to the updated POM.
+    """
+    if self_attention_index:
+        assert self_attention_index <= depth
     conv = tf.contrib.layers.conv3d
 
     with tf.contrib.framework.arg_scope([conv], num_outputs=32,
@@ -24,11 +34,23 @@ def _predict_object_mask_2d(net, depth=9):
         net = conv(net, scope='conv0_b', activation_fn=None)
         for i in range(1, depth):
             with tf.name_scope('residual%d' % i):
-                in_net = net
-                net = tf.nn.relu(net)
-                net = conv(net, scope='conv%d_a' % i)
-                net = conv(net, scope='conv%d_b' % i, activation_fn=None)
-                net += in_net
+                # At each iteration, net has shape [batch_size, 1, y, x, num_outputs]
+                if i == self_attention_index:
+                    # Use a self-attention block instead of a residual block.
+
+                    # Self-Attention only implemented for 2D; drop the z-axis and
+                    # reconstruct it after the self-attention block.
+                    net = tf.squeeze(net, axis=1)
+                    net = sn_non_local_block_sim(net, None, "self_attention")
+                    net = tf.expand_dims(net, axis=1)
+                else:
+                    # Use a residual block.
+                    in_net = net
+                    net = tf.nn.relu(net)
+                    net = conv(net, scope='conv%d_a' % i)
+                    net = conv(net, scope='conv%d_b' % i, activation_fn=None)
+                    net += in_net
+
     net = tf.nn.relu(net)
     logits = conv(net, 1, (1, 1, 1), activation_fn=None, scope='conv_lom')
 
@@ -40,7 +62,7 @@ class FFNTracerModel(FFNModel):
 
     def __init__(self, deltas, batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
-                 l1lambda=1e-3):
+                 l1lambda=1e-3, self_attention_layer=None):
         """
 
         :param deltas:
@@ -66,6 +88,7 @@ class FFNTracerModel(FFNModel):
         self.alpha = alpha
         self.fov_size = fov_size
         self.l1lambda = l1lambda
+        self.self_attention_layer = self_attention_layer
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -269,7 +292,8 @@ class FFNTracerModel(FFNModel):
         net = tf.concat([self.input_patches, self.input_seed], 4)
 
         with tf.variable_scope('seed_update', reuse=False):
-            logit_update = _predict_object_mask_2d(net, self.depth)
+            logit_update = _predict_object_mask_2d(
+                net, self.depth, self_attention_index=self.self_attention_layer)
         logit_seed = self.update_seed(self.input_seed, logit_update)
 
         # Make predictions available, both as probabilities and logits.
