@@ -361,6 +361,7 @@ class FFNTracerModel(FFNModel):
                                                 global_step=self.global_step,
                                                 name='train')
             self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
+                                                              global_step=self.global_step,
                                                               name='train_adversary')
 
     def define_tf_graph(self):
