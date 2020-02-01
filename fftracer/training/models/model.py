@@ -319,9 +319,11 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('optimizer_loss', self.loss)
 
         opt = optimizer.optimizer_from_flags()
-        d_opt = tf.train.AdamOptimizer(learning_rate=0.001)
 
-        # grads_and_vars = opt.compute_gradients(loss)
+        # Use the default values from DCGAN paper; they said lower learning rate and
+        # beta_1 necessary to improve stability
+        d_opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta_1=0.5)
+
         ffn_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                      scope='seed_update')
         d_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
