@@ -64,7 +64,7 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
-flags.DEFINE_int('adversary_to_ffn_update_ratio', 5,
+flags.DEFINE_integer('adversary_to_ffn_update_ratio', 5,
                  'the number of adversarial/discriminator update steps to conduct for '
                  'every one FFN update step.')
 
