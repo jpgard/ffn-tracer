@@ -44,3 +44,15 @@ class DCGAN:
             return self.predict_discriminator_2d(batch)
         elif self.dim == 3:
             raise NotImplementedError
+
+    def discriminator_loss(self, real_output, fake_output):
+        """Compute the loss for a discriminator.
+
+        returns a Tensor of shape [batch_size, 1].
+        """
+        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        real_loss = cross_entropy(tf.ones_like(real_output), real_output)
+        fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
+        total_loss = real_loss + fake_loss
+        total_loss = tf.verify_tensor_all_finite(total_loss, 'Invalid discriminator loss')
+        return total_loss
