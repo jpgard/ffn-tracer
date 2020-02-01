@@ -60,4 +60,5 @@ class DCGAN:
         discriminator_loss_batch = tf.verify_tensor_all_finite(
             discriminator_loss_batch, 'Invalid discriminator loss')
         self.d_loss = tf.reduce_mean(discriminator_loss_batch)
+        tf.summary.scalar('discriminator_loss', self.d_loss)
         return
