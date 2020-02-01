@@ -91,6 +91,8 @@ class FFNTracerModel(FFNModel):
         self.fov_size = fov_size
         self.l1lambda = l1lambda
         self.self_attention_layer = self_attention_layer
+        self.discriminator = None
+        self.discriminator_loss = None
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -275,13 +277,25 @@ class FFNTracerModel(FFNModel):
         pred_fake = self.discriminator.predict_discriminator(logits)
         pred_true = self.discriminator.predict_discriminator(self.labels)
 
+        # We want the network to produce output which fools the discriminator,
+        # so we use cross-entropy loss to measure how close the discriminators'
+        # predictions are to an array of ONEs (which would indicate it is fooled).
 
+        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        generator_loss_batch = cross_entropy(tf.ones_like(pred_fake), pred_fake)
+        self.loss = tf.reduce_mean(generator_loss_batch)
+        tf.summary.scalar('adversarial_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
-        # TODO(jpgard): compute the loss here and assign to self.loss.
-        import ipdb;ipdb.set_trace()
-
-
-        pass
+        # Compute the discriminator loss
+        discriminator_loss_batch = self.discriminator.discriminator_loss(
+            real_output=pred_true, fake_output=pred_fake
+        )
+        # Sanity check shape of discriminator_loss; should be the summed loss from the
+        # fake and real batches, which will have shape [batch_size, 1].
+        assert discriminator_loss_batch.get_shape().as_list() == [batch_size, 1]
+        self.discriminator_loss = tf.reduce_mean(discriminator_loss_batch)
+        return
 
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
@@ -324,7 +338,7 @@ class FFNTracerModel(FFNModel):
 
         if self.labels is not None:
             # TODO(jpgard): need to define the training step for the discriminator
-            #  somewhere in the FFNModel class.
+            #  somewhere in the FFNModel class, and implement a separate optimizer for it.
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
             self.show_center_slice(logit_seed)
