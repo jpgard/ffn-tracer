@@ -10,7 +10,7 @@ from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
 from fftracer.training.models.dcgan import DCGAN
 import tensorflow as tf
-from fftracer.utils.tensor_ops import drop_axis, add_axis
+from fftracer.utils.tensor_ops import drop_axis, add_axis, clip_gradients
 
 
 def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
@@ -311,7 +311,20 @@ class FFNTracerModel(FFNModel):
         else:
             raise NotImplementedError
 
-    def set_up_optimizer(self, loss=None, max_gradient_entry_mag=0.7):
+    def apply_gradients_for_scope(self, opt, loss_op, scope, max_gradient_entry_mag=0.7):
+        trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+        grads_and_vars = opt.compute_gradients(loss_op, var_list = trainable_vars)
+        for g, v in grads_and_vars:
+            if g is None:
+                tf.logging.error('Gradient is None: %s', v.op.name)
+        grads_and_vars = clip_gradients(max_gradient_entry_mag, grads_and_vars)
+        for grad, var in grads_and_vars:
+            # tf.summary.histogram(
+            #     'gradients/%s' % var.name.replace(':0', ''), grad)
+            tf.summary.histogram(var.name, grad)
+        return grads_and_vars
+
+    def set_up_optimizer(self, loss=None):
         """Sets up the training op for the model."""
         from ffn.training import optimizer
         if loss is None:
@@ -320,49 +333,25 @@ class FFNTracerModel(FFNModel):
 
         opt = optimizer.optimizer_from_flags()
 
-        # Use the default values from DCGAN paper; they said lower learning rate and
-        # beta_1 necessary to improve stability
-        d_opt = tf.train.AdamOptimizer(learning_rate=0.0002, beta_1=0.5)
+        d_opt = self.discriminator.get_optimizer()
 
-        ffn_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                     scope='seed_update')
-        d_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                     scope=self.discriminator.d_scope_name)
-        # Gradients and variables for FFN
-        ffn_grads_and_vars = opt.compute_gradients(self.loss, var_list=ffn_trainable_vars)
-        d_grads_and_vars = d_opt.compute_gradients(self.discriminator.d_loss,
-                                                   var_list=d_trainable_vars)
-        for g, v in ffn_grads_and_vars + d_grads_and_vars:
-            if g is None:
-                tf.logging.error('Gradient is None: %s', v.op.name)
-
-        def _clip_gradients(grads_and_vars):
-            if max_gradient_entry_mag > 0.0:
-                grads_and_vars = [(tf.clip_by_value(g,
-                                                    -max_gradient_entry_mag,
-                                                    +max_gradient_entry_mag), v)
-                                  for g, v, in grads_and_vars]
-            return grads_and_vars
-
-        ffn_grads_and_vars = _clip_gradients(ffn_grads_and_vars)
-        d_grads_and_vars = _clip_gradients(d_grads_and_vars)
+        ffn_grads_and_vars = self.apply_gradients_for_scope(opt, self.loss, 'seed_update')
 
         trainables = tf.trainable_variables()
         if trainables:
             for var in trainables:
                 # tf.summary.histogram(var.name.replace(':0', ''), var)
                 tf.summary.histogram(var.name, var)
-        for grad, var in ffn_grads_and_vars + d_grads_and_vars:
-            # tf.summary.histogram(
-            #     'gradients/%s' % var.name.replace(':0', ''), grad)
-            tf.summary.histogram(var.name, grad)
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             self.train_op = opt.apply_gradients(ffn_grads_and_vars,
                                                 global_step=self.global_step,
                                                 name='train')
-            self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
+            if d_opt:  # Add the adversarial train op to the FFTracer model
+                d_grads_and_vars = self.apply_gradients_for_scope(
+                    d_opt, self.discriminator.d_loss, self.discriminator.d_scope_name)
+                self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
                                                               global_step=self.global_step,
                                                               name='train_adversary')
 
