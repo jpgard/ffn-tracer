@@ -288,13 +288,8 @@ class FFNTracerModel(FFNModel):
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
         # Compute the discriminator loss
-        discriminator_loss_batch = self.discriminator.discriminator_loss(
-            real_output=pred_true, fake_output=pred_fake
-        )
-        # Sanity check shape of discriminator_loss; should be the summed loss from the
-        # fake and real batches, which will have shape [batch_size, 1].
-        assert discriminator_loss_batch.get_shape().as_list() == [batch_size, 1]
-        self.discriminator_loss = tf.reduce_mean(discriminator_loss_batch)
+        self.discriminator.discriminator_loss(real_output=pred_true,
+                                              fake_output=pred_fake)
         return
 
     def set_up_loss(self, logit_seed):
@@ -315,6 +310,59 @@ class FFNTracerModel(FFNModel):
             self.set_up_adversarial_loss(logit_seed)
         else:
             raise NotImplementedError
+
+    def set_up_optimizer(self, loss=None, max_gradient_entry_mag=0.7):
+        """Sets up the training op for the model."""
+        from ffn.training import optimizer
+        if loss is None:
+            loss = self.loss
+        tf.summary.scalar('optimizer_loss', self.loss)
+
+        ffn_opt = optimizer.optimizer_from_flags()
+        # TODO: tune/add other params
+        adversarial_opt = tf.train.AdamOptimizer(learning_rate=0.001)
+        with tf.GradientTape() as ffn_tape, tf.GradientTape() as adversarial_tape:
+            import ipdb;ipdb.set_trace()
+            ffn_trainables = tf.trainable_variables('seed_update') # TODO: check not None
+            adversary_trainable = tf.trainable_variables(self.discriminator.d_scope_name)
+
+            # Check that all of the trainable variables are either in the ffn or
+            # adversarial trainables lists
+            assert len(ffn_trainables) + len(adversary_trainable) == len(
+                tf.trainable_variables())
+            ffn_gradients = ffn_tape.gradient(self.loss, ffn_trainables)
+            adversary_gradients = adversarial_tape.gradient(self.discriminator.d_loss,
+                                                            adversary_trainable)
+            ffn_grads_and_vars = zip(ffn_gradients, ffn_trainables)
+            adversary_grads_and_vars = zip(adversary_gradients, adversary_trainable)
+            # TODO(jpgard): handle the ffn_grads_and_vars and the adversary_grads_and_vars
+            grads_and_vars = ffn_opt.compute_gradients(loss)
+
+            for g, v in grads_and_vars:
+                if g is None:
+                    tf.logging.error('Gradient is None: %s', v.op.name)
+
+            if max_gradient_entry_mag > 0.0:
+                grads_and_vars = [(tf.clip_by_value(g,
+                                                    -max_gradient_entry_mag,
+                                                    +max_gradient_entry_mag), v)
+                                  for g, v, in grads_and_vars]
+
+
+            if ffn_trainables:
+                for var in ffn_trainables:
+                    # tf.summary.histogram(var.name.replace(':0', ''), var)
+                    tf.summary.histogram(var.name, var)
+            for grad, var in grads_and_vars:
+                # tf.summary.histogram(
+                #     'gradients/%s' % var.name.replace(':0', ''), grad)
+                tf.summary.histogram(var.name, grad)
+
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.train_op = ffn_opt.apply_gradients(grads_and_vars,
+                                                    global_step=self.global_step,
+                                                    name='train')
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
@@ -341,6 +389,12 @@ class FFNTracerModel(FFNModel):
             #  somewhere in the FFNModel class, and implement a separate optimizer for it.
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
+            if self.discriminator:
+                self.discriminator.set_up_optimizer()
+            print("discriminator.set_up_optimizer() complete :)")
+            import ipdb;ipdb.set_trace()
+            # TODO(jpgard): add the discriminator.train_op to the list of ops to
+            #  execute in train.py.
             self.show_center_slice(logit_seed)
             self.show_center_slice(self.labels, sigmoid=False)
             self.add_summaries()
