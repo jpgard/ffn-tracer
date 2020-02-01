@@ -385,13 +385,8 @@ class FFNTracerModel(FFNModel):
         self.logistic = tf.sigmoid(logit_seed)
 
         if self.labels is not None:
-            # TODO(jpgard): need to define the training step for the discriminator
-            #  somewhere in the FFNModel class, and implement a separate optimizer for it.
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
-            import ipdb;ipdb.set_trace()
-            # TODO(jpgard): add the discriminator.train_op to the list of ops to
-            #  execute in train.py.
             self.show_center_slice(logit_seed)
             self.show_center_slice(self.labels, sigmoid=False)
             self.add_summaries()
