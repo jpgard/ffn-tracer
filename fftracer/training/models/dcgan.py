@@ -9,6 +9,8 @@ class DCGAN:
         assert len(input_shape) == dim + 1, "input should have shape (dim + 1)"
         self.dim = dim
         self.input_shape = input_shape
+        self.d_loss = None  # The discriminator loss
+        self.d_scope_name = 'dcgan_discriminator'
 
     def predict_discriminator_2d(self, net):
         """
@@ -25,7 +27,7 @@ class DCGAN:
             "discriminator input has shape {}, does not match expected shape {}".format(
                  input_batch_shape, self.input_shape
             )
-        with tf.variable_scope('discriminator', reuse=False):
+        with tf.variable_scope(self.d_scope_name, reuse=False):
             net = tf.keras.layers.Conv2D(64, (5, 5), strides=(2, 2), padding='SAME',
                                          input_shape=self.input_shape)(net)
             net = tf.keras.layers.LeakyReLU(alpha=0.2)(net)
@@ -53,6 +55,9 @@ class DCGAN:
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         real_loss = cross_entropy(tf.ones_like(real_output), real_output)
         fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
-        total_loss = real_loss + fake_loss
-        total_loss = tf.verify_tensor_all_finite(total_loss, 'Invalid discriminator loss')
-        return total_loss
+        discriminator_loss_batch = real_loss + fake_loss
+
+        discriminator_loss_batch = tf.verify_tensor_all_finite(
+            discriminator_loss_batch, 'Invalid discriminator loss')
+        self.d_loss = tf.reduce_mean(discriminator_loss_batch)
+        return
