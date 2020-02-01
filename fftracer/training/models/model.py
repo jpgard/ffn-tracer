@@ -318,51 +318,50 @@ class FFNTracerModel(FFNModel):
             loss = self.loss
         tf.summary.scalar('optimizer_loss', self.loss)
 
-        ffn_opt = optimizer.optimizer_from_flags()
-        # TODO: tune/add other params
-        adversarial_opt = tf.train.AdamOptimizer(learning_rate=0.001)
-        with tf.GradientTape() as ffn_tape, tf.GradientTape() as adversarial_tape:
-            import ipdb;ipdb.set_trace()
-            ffn_trainables = tf.trainable_variables('seed_update') # TODO: check not None
-            adversary_trainable = tf.trainable_variables(self.discriminator.d_scope_name)
+        opt = optimizer.optimizer_from_flags()
+        d_opt = tf.train.AdamOptimizer(learning_rate=0.001)
 
-            # Check that all of the trainable variables are either in the ffn or
-            # adversarial trainables lists
-            assert len(ffn_trainables) + len(adversary_trainable) == len(
-                tf.trainable_variables())
-            ffn_gradients = ffn_tape.gradient(self.loss, ffn_trainables)
-            adversary_gradients = adversarial_tape.gradient(self.discriminator.d_loss,
-                                                            adversary_trainable)
-            ffn_grads_and_vars = zip(ffn_gradients, ffn_trainables)
-            adversary_grads_and_vars = zip(adversary_gradients, adversary_trainable)
-            # TODO(jpgard): handle the ffn_grads_and_vars and the adversary_grads_and_vars
-            grads_and_vars = ffn_opt.compute_gradients(loss)
+        # grads_and_vars = opt.compute_gradients(loss)
+        ffn_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                     scope='seed_update')
+        d_trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                     scope=self.discriminator.d_scope_name)
+        # Gradients and variables for FFN
+        ffn_grads_and_vars = opt.compute_gradients(self.loss, var_list=ffn_trainable_vars)
+        d_grads_and_vars = d_opt.compute_gradients(self.discriminator.d_loss,
+                                                   var_list=d_trainable_vars)
+        for g, v in ffn_grads_and_vars + d_grads_and_vars:
+            if g is None:
+                tf.logging.error('Gradient is None: %s', v.op.name)
 
-            for g, v in grads_and_vars:
-                if g is None:
-                    tf.logging.error('Gradient is None: %s', v.op.name)
-
+        def _clip_gradients(grads_and_vars):
             if max_gradient_entry_mag > 0.0:
                 grads_and_vars = [(tf.clip_by_value(g,
                                                     -max_gradient_entry_mag,
                                                     +max_gradient_entry_mag), v)
                                   for g, v, in grads_and_vars]
+            return grads_and_vars
 
+        ffn_grads_and_vars = _clip_gradients(ffn_grads_and_vars)
+        d_grads_and_vars = _clip_gradients(d_grads_and_vars)
 
-            if ffn_trainables:
-                for var in ffn_trainables:
-                    # tf.summary.histogram(var.name.replace(':0', ''), var)
-                    tf.summary.histogram(var.name, var)
-            for grad, var in grads_and_vars:
-                # tf.summary.histogram(
-                #     'gradients/%s' % var.name.replace(':0', ''), grad)
-                tf.summary.histogram(var.name, grad)
+        trainables = tf.trainable_variables()
+        if trainables:
+            for var in trainables:
+                # tf.summary.histogram(var.name.replace(':0', ''), var)
+                tf.summary.histogram(var.name, var)
+        for grad, var in ffn_grads_and_vars + d_grads_and_vars:
+            # tf.summary.histogram(
+            #     'gradients/%s' % var.name.replace(':0', ''), grad)
+            tf.summary.histogram(var.name, grad)
 
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                self.train_op = ffn_opt.apply_gradients(grads_and_vars,
-                                                    global_step=self.global_step,
-                                                    name='train')
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.train_op = opt.apply_gradients(ffn_grads_and_vars,
+                                                global_step=self.global_step,
+                                                name='train')
+            self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
+                                                              name='train_adversary')
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
@@ -389,9 +388,6 @@ class FFNTracerModel(FFNModel):
             #  somewhere in the FFNModel class, and implement a separate optimizer for it.
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
-            if self.discriminator:
-                self.discriminator.set_up_optimizer()
-            print("discriminator.set_up_optimizer() complete :)")
             import ipdb;ipdb.set_trace()
             # TODO(jpgard): add the discriminator.train_op to the list of ops to
             #  execute in train.py.
