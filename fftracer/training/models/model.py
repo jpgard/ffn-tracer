@@ -8,7 +8,9 @@ from scipy.ndimage import distance_transform_edt as distance
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
+from fftracer.training.models.dcgan import DCGAN
 import tensorflow as tf
+from fftracer.utils.tensor_ops import drop_axis, add_axis
 
 
 def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
@@ -40,9 +42,9 @@ def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
 
                     # Self-Attention only implemented for 2D; drop the z-axis and
                     # reconstruct it after the self-attention block.
-                    net = tf.squeeze(net, axis=1)
+                    net = drop_axis(net, axis=1)
                     net = sn_non_local_block_sim(net, None, "self_attention")
-                    net = tf.expand_dims(net, axis=1)
+                    net = add_axis(net, axis=1)
                 else:
                     # Use a residual block.
                     in_net = net
@@ -263,6 +265,24 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
+    def set_up_adversarial_loss(self, logits):
+        assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
+        batch_size, z, y, x, num_channels = logits.get_shape().as_list()
+        self.discriminator = DCGAN(input_shape=[y, x, num_channels], dim=2)
+
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] conaining
+        # the predicted probability that each element in the batch is 'real'.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+
+
+        # TODO(jpgard): compute the loss here and assign to self.loss.
+        import ipdb;ipdb.set_trace()
+
+
+        pass
+
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
         if self.loss_name == "sigmoid_pixelwise":
@@ -277,6 +297,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_ms_ssim_loss(logit_seed)
         elif self.loss_name == "boundary":
             self.set_up_boundary_loss(logit_seed)
+        elif self.loss_name == "adversarial":
+            self.set_up_adversarial_loss(logit_seed)
         else:
             raise NotImplementedError
 
@@ -301,6 +323,8 @@ class FFNTracerModel(FFNModel):
         self.logistic = tf.sigmoid(logit_seed)
 
         if self.labels is not None:
+            # TODO(jpgard): need to define the training step for the discriminator
+            #  somewhere in the FFNModel class.
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
             self.show_center_slice(logit_seed)
