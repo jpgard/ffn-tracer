@@ -62,3 +62,8 @@ class DCGAN:
         self.d_loss = tf.reduce_mean(discriminator_loss_batch)
         tf.summary.scalar('discriminator_loss', self.d_loss)
         return
+
+    def get_optimizer(self):
+        # Use the default values from DCGAN paper; they said lower learning rate and
+        # beta_1 necessary to improve stability
+        return tf.train.AdamOptimizer(learning_rate=0.0002, beta_1=0.5)
