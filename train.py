@@ -11,7 +11,7 @@ python train.py \
     --image_mean 78 --image_stddev 20 \
     --max_steps 10000000 \
     --optimizer $OPTIMIZER \
-    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER"} \
+    --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
     --visible_gpus=0,1
 
 """
@@ -64,6 +64,9 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
+flags.DEFINE_int('adversary_to_ffn_update_ratio', 5,
+                 'the number of adversarial/discriminator update steps to conduct for '
+                 'every one FFN update step.')
 
 # flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 
@@ -121,6 +124,12 @@ flags.DEFINE_float('image_stddev', None,
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
+
+def is_adversary_update_step(step, model) -> bool:
+    is_adversarial_model = hasattr(model,"adversarial_train_op") and \
+                           getattr(model, "adversarial_train_op") is not None
+    is_adversarial_turn = not (step % FLAGS.adversary_to_ffn_update_ratio == 0)
+    return (is_adversarial_model and is_adversarial_turn)
 
 def _get_offset_and_scale_map():
     if not FLAGS.image_offset_scale_map:
@@ -347,6 +356,21 @@ def run_training_step(sess, model, fetch_summary, feed_dict):
     return prediction, step, summ
 
 
+def run_adversary_training_step(sess, model, fetch_summary, feed_dict):
+    ops_to_run = [model.adversarial_train_op, model.global_step, model.logits]
+
+    if fetch_summary is not None:
+        ops_to_run.append(fetch_summary)
+    results = sess.run(ops_to_run, feed_dict)
+    step = results[1]
+    if fetch_summary is not None:
+        summ = results[-1]
+    else:
+        summ = None
+
+    return step, summ
+
+
 def define_data_input(model, queue_batch=None):
     """Adds TF ops to load input data.
     Mimics structure of function of the same name in ffn.train.py
@@ -540,18 +564,29 @@ def main(argv):
                     seed, patches, labels, weights = next(batch_it)
                     # JG: weights, labels, patches, and seed all have
                     # shape [b, z, y, x, 1] at this stage.
-                    updated_seed, step, summ = run_training_step(
-                        sess, model, summ_op,
-                        feed_dict={
-                            model.loss_weights: weights,
-                            model.labels: labels,
-                            model.input_patches: patches,
-                            model.input_seed: seed,
-                        })
 
-                    # Save prediction results in the original seed array so that
-                    # they can be used in subsequent steps.
-                    mask.update_at(seed, (0, 0, 0), updated_seed)
+                    feed_dict = {
+                                model.loss_weights: weights,
+                                model.labels: labels,
+                                model.input_patches: patches,
+                                model.input_seed: seed,
+                            }
+
+                    if is_adversary_update_step(step, model):
+                        # Update the adversary
+                        step, summ = run_adversary_training_step(
+                            sess, model, summ_op,
+                            feed_dict=feed_dict
+                        )
+                    else:
+                        # Update the FFN model
+                        updated_seed, step, summ = run_training_step(
+                            sess, model, summ_op,
+                            feed_dict=feed_dict)
+
+                        # Save prediction results in the original seed array so that
+                        # they can be used in subsequent steps.
+                        mask.update_at(seed, (0, 0, 0), updated_seed)
 
                     # Record summaries.
                     if summ is not None:
