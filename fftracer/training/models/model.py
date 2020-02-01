@@ -8,7 +8,9 @@ from scipy.ndimage import distance_transform_edt as distance
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
+from fftracer.training.models.dcgan import DCGAN
 import tensorflow as tf
+from fftracer.utils.tensor_ops import drop_axis, add_axis, clip_gradients
 
 
 def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
@@ -40,9 +42,9 @@ def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
 
                     # Self-Attention only implemented for 2D; drop the z-axis and
                     # reconstruct it after the self-attention block.
-                    net = tf.squeeze(net, axis=1)
+                    net = drop_axis(net, axis=1)
                     net = sn_non_local_block_sim(net, None, "self_attention")
-                    net = tf.expand_dims(net, axis=1)
+                    net = add_axis(net, axis=1)
                 else:
                     # Use a residual block.
                     in_net = net
@@ -89,6 +91,8 @@ class FFNTracerModel(FFNModel):
         self.fov_size = fov_size
         self.l1lambda = l1lambda
         self.self_attention_layer = self_attention_layer
+        self.discriminator = None
+        self.discriminator_loss = None
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -263,6 +267,31 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
+    def set_up_adversarial_loss(self, logits):
+        assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
+        batch_size, z, y, x, num_channels = logits.get_shape().as_list()
+        self.discriminator = DCGAN(input_shape=[y, x, num_channels], dim=2)
+
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] conaining
+        # the predicted probability that each element in the batch is 'real'.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+        # We want the network to produce output which fools the discriminator,
+        # so we use cross-entropy loss to measure how close the discriminators'
+        # predictions are to an array of ONEs (which would indicate it is fooled).
+
+        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        generator_loss_batch = cross_entropy(tf.ones_like(pred_fake), pred_fake)
+        self.loss = tf.reduce_mean(generator_loss_batch)
+        tf.summary.scalar('adversarial_loss', self.loss)
+        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+
+        # Compute the discriminator loss
+        self.discriminator.discriminator_loss(real_output=pred_true,
+                                              fake_output=pred_fake)
+        return
+
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
         if self.loss_name == "sigmoid_pixelwise":
@@ -277,8 +306,54 @@ class FFNTracerModel(FFNModel):
             self.set_up_ms_ssim_loss(logit_seed)
         elif self.loss_name == "boundary":
             self.set_up_boundary_loss(logit_seed)
+        elif self.loss_name == "adversarial":
+            self.set_up_adversarial_loss(logit_seed)
         else:
             raise NotImplementedError
+
+    def apply_gradients_for_scope(self, opt, loss_op, scope, max_gradient_entry_mag=0.7):
+        trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+        grads_and_vars = opt.compute_gradients(loss_op, var_list = trainable_vars)
+        for g, v in grads_and_vars:
+            if g is None:
+                tf.logging.error('Gradient is None: %s', v.op.name)
+        grads_and_vars = clip_gradients(max_gradient_entry_mag, grads_and_vars)
+        for grad, var in grads_and_vars:
+            # tf.summary.histogram(
+            #     'gradients/%s' % var.name.replace(':0', ''), grad)
+            tf.summary.histogram(var.name, grad)
+        return grads_and_vars
+
+    def set_up_optimizer(self, loss=None):
+        """Sets up the training op for the model."""
+        from ffn.training import optimizer
+        if loss is None:
+            loss = self.loss
+        tf.summary.scalar('optimizer_loss', self.loss)
+
+        opt = optimizer.optimizer_from_flags()
+
+        d_opt = self.discriminator.get_optimizer()
+
+        ffn_grads_and_vars = self.apply_gradients_for_scope(opt, self.loss, 'seed_update')
+
+        trainables = tf.trainable_variables()
+        if trainables:
+            for var in trainables:
+                # tf.summary.histogram(var.name.replace(':0', ''), var)
+                tf.summary.histogram(var.name, var)
+
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.train_op = opt.apply_gradients(ffn_grads_and_vars,
+                                                global_step=self.global_step,
+                                                name='train')
+            if d_opt:  # Add the adversarial train op to the FFTracer model
+                d_grads_and_vars = self.apply_gradients_for_scope(
+                    d_opt, self.discriminator.d_loss, self.discriminator.d_scope_name)
+                self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
+                                                              global_step=self.global_step,
+                                                              name='train_adversary')
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
