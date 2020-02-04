@@ -4,13 +4,22 @@ from fftracer.utils.tensor_ops import drop_axis
 
 
 class DCGAN:
-    def __init__(self, input_shape, dim=2):
+    def __init__(self, input_shape, optimizer_name: str, noisy_labels: bool, dim=2):
+        """
+
+        :param input_shape: the shape of the input images, omitting batch size.
+        :param optimizer_name: name of the optimizer to use.
+        :param noisy_labels: boolean indicator for whether to provide noisy labels to
+        the discriminator at training time.
+        :param dim: the dimension of input images.
+        """
         assert dim in (2, 3)
         assert len(input_shape) == dim + 1, "input should have shape (dim + 1)"
         self.dim = dim
         self.input_shape = input_shape
         self.d_loss = None  # The discriminator loss
         self.d_scope_name = 'dcgan_discriminator'
+        self.optimizer_name = optimizer_name
 
     def predict_discriminator_2d(self, net):
         """
@@ -37,8 +46,6 @@ class DCGAN:
             net = tf.keras.layers.Dropout(0.3)(net)
             net = tf.keras.layers.Flatten()(net)
             batch_pred = tf.keras.layers.Dense(1)(net)
-            # TODO(jpgard): should we apply sigmoid here, since we want a value in
-            #  range (0,1) ?
             return batch_pred
 
     def predict_discriminator(self, batch):
@@ -64,6 +71,9 @@ class DCGAN:
         return
 
     def get_optimizer(self):
-        # Use the default values from DCGAN paper; they said lower learning rate and
-        # beta_1 necessary to improve stability
-        return tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
+        if self.optimizer_name == "adam":
+            # Use the default values from DCGAN paper; they said lower learning rate and
+            # beta_1 necessary to improve stability
+            return tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
+        elif self.optimizer_name == "sgd":
+            return tf.train.GradientDescentOptimizer(learning_rate=0.0001)
