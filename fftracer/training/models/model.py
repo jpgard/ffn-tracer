@@ -271,7 +271,8 @@ class FFNTracerModel(FFNModel):
         assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
         batch_size, z, y, x, num_channels = logits.get_shape().as_list()
         self.discriminator = DCGAN(input_shape=[y, x, num_channels], dim=2,
-                                   optimizer_name="sgd")
+                                   optimizer_name="sgd",
+                                   smooth_labels=True)
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] conaining
         # the predicted probability that each element in the batch is 'real'.

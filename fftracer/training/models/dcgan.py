@@ -4,13 +4,13 @@ from fftracer.utils.tensor_ops import drop_axis
 
 
 class DCGAN:
-    def __init__(self, input_shape, optimizer_name: str, noisy_labels: bool, dim=2):
+    def __init__(self, input_shape, optimizer_name: str, smooth_labels: bool, dim=2):
         """
 
         :param input_shape: the shape of the input images, omitting batch size.
         :param optimizer_name: name of the optimizer to use.
-        :param noisy_labels: boolean indicator for whether to provide noisy labels to
-        the discriminator at training time.
+        :param smooth_labels: boolean indicator for whether to perform one-sided label
+        smoothing in the discriminator (see https://arxiv.org/pdf/1701.00160.pdf).
         :param dim: the dimension of input images.
         """
         assert dim in (2, 3)
@@ -20,6 +20,9 @@ class DCGAN:
         self.d_loss = None  # The discriminator loss
         self.d_scope_name = 'dcgan_discriminator'
         self.optimizer_name = optimizer_name
+        self.smooth_labels = smooth_labels
+        self.noisy_label_mean = 0.9
+        self.noisy_label_stddev = 0.025
 
     def predict_discriminator_2d(self, net):
         """
@@ -54,14 +57,28 @@ class DCGAN:
         elif self.dim == 3:
             raise NotImplementedError
 
+    def get_real_labels(self, real_output: tf.Tensor) -> tf.Tensor:
+        """Get a (possibly smoothed/noisy) set of labels for real_output."""
+        if self.smooth_labels:
+            noisy_labels = tf.random.normal(shape=real_output.get_shape(),
+                                            mean=self.noisy_label_mean,
+                                            stddev=self.noisy_label_stddev)
+            return noisy_labels
+        else:
+            return tf.ones_like(real_output)
+
     def discriminator_loss(self, real_output, fake_output):
         """Compute the loss for a discriminator.
 
         returns a Tensor of shape [batch_size, 1].
         """
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-        real_loss = cross_entropy(tf.ones_like(real_output), real_output)
-        fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
+        # create labels and add noise to the real labels if desired
+        real_labels = self.get_real_labels(real_output)
+        fake_labels = tf.zeros_like(fake_output)
+
+        real_loss = cross_entropy(real_labels, real_output)
+        fake_loss = cross_entropy(fake_labels, fake_output)
         discriminator_loss_batch = real_loss + fake_loss
 
         discriminator_loss_batch = tf.verify_tensor_all_finite(
