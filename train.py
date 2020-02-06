@@ -12,6 +12,7 @@ python train.py \
     --max_steps 10000000 \
     --optimizer $OPTIMIZER \
     --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
+    --adv_args "{\"depth\": $DEPTH, \"optimizer\": \"sgd\"}"
     --visible_gpus=0,1
 
 """
@@ -67,6 +68,9 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
 flags.DEFINE_integer('adversary_to_ffn_update_ratio', 5,
                  'the number of adversarial/discriminator update steps to conduct for '
                  'every one FFN update step.')
+flags.DEFINE_string('adv_args', None,
+                    'JSON string with arguments to be passed to the '
+                    'adversary/discriminator constructor.')
 
 # flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 

@@ -16,4 +16,8 @@ def uid_from_flags(flags):
     uid += "loss{}".format(model_args.pop("loss_name"))
     uid += "deltas{}".format("".join([str(x) for x in model_args.pop("deltas")]))
     uid += "".join([str(k) + str(v) for k,v in model_args.items()])
+    if flags.adv_args:
+        adv_args = json.loads(flags.adv_args)
+        uid += "_adv_"
+        uid += "".join([str(k) + str(v) for k, v in adv_args.items()])
     return uid
