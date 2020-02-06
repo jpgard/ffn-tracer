@@ -1,8 +1,10 @@
 """Classes for FFN model definition."""
 
+import json
 import logging
 import numpy as np
 import math
+from typing import Optional
 
 from scipy.ndimage import distance_transform_edt as distance
 
@@ -64,14 +66,20 @@ class FFNTracerModel(FFNModel):
 
     def __init__(self, deltas, batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
-                 l1lambda=1e-3, self_attention_layer=None):
+                 l1lambda=1e-3, self_attention_layer=None,
+                 adv_args: Optional[dict]=None):
         """
 
-        :param deltas:
-        :param batch_size:
+        :param deltas: deltas for training and inference.
+        :param batch_size: training batch size.
         :param dim: number of dimensions of model prediction (e.g. 2 = 2D input/output)
         :param fov_size: [x,y,z] fov size.
         :param depth: number of convolutional layers.
+        :param loss_name: name of loss.
+        :param alpha: alpha, for scheduled losses.
+        :param l1lambda: l1 regularization parameter, for applicable losses.
+        :param self_attention_layer: index of the layer to use a self-attention block at.
+        :param adv_args: dictionary of args to be passed to adversary constructor.
         """
         try:
             fov_size = [int(x) for x in fov_size]
@@ -101,6 +109,14 @@ class FFNTracerModel(FFNModel):
         # Set pred_mask_size = input_seed_size = input_image_size = fov_size and
         # also set input_seed.shape = input_patch.shape = [batch_size, z, y, x, 1] .
         self.set_uniform_io_size(fov_size)
+
+        self._adv_args = adv_args
+
+    @property
+    def adv_args(self):
+        assert self._adv_args is not None,\
+            "supply adversary_args to FFNTracer constructor"
+        return json.loads(self._adv_args)
 
     def compute_sce_loss(self, logits):
         """Compute the pixelwise sigmoid cross-entropy loss using logits and labels."""
@@ -270,9 +286,9 @@ class FFNTracerModel(FFNModel):
     def set_up_adversarial_loss(self, logits):
         assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
         batch_size, z, y, x, num_channels = logits.get_shape().as_list()
-        self.discriminator = DCGAN(input_shape=[y, x, num_channels], dim=2,
-                                   optimizer_name="sgd",
-                                   smooth_labels=True)
+        self.discriminator = DCGAN(input_shape=[y, x, num_channels],
+                                   dim=2,
+                                   **self.adv_args)
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] conaining
         # the predicted probability that each element in the batch is 'real'.
