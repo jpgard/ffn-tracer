@@ -12,7 +12,7 @@ python train.py \
     --max_steps 10000000 \
     --optimizer $OPTIMIZER \
     --model_args "{\"depth\": $DEPTH, \"fov_size\": [${FOV}, ${FOV}, 1], \"deltas\": [8, 8, 0], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
-    --adv_args "{\"depth\": $DEPTH, \"optimizer\": \"sgd\"}"
+    --adv_args "{\"smooth_labels\": true, \"optimizer_name\": \"sgd\"}"
     --visible_gpus=0,1
 
 """
@@ -65,7 +65,7 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
-flags.DEFINE_integer('adv_to_ffn_update_ratio', 2,
+flags.DEFINE_integer('adv_update_every_iters', 2,
                  'the number of adversarial/discriminator update steps to conduct for '
                  'every one FFN update step.')
 flags.DEFINE_string('adv_args', None,
@@ -132,7 +132,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 def is_adversary_update_step(step, model) -> bool:
     is_adversarial_model = hasattr(model,"adversarial_train_op") and \
                            getattr(model, "adversarial_train_op") is not None
-    is_adversarial_turn = not (step % FLAGS.adv_to_ffn_update_ratio == 0)
+    is_adversarial_turn = not (step % FLAGS.adv_update_every_iters == 0)
     return (is_adversarial_model and is_adversarial_turn)
 
 def _get_offset_and_scale_map():
@@ -489,6 +489,7 @@ def main(argv):
             # strings; these need to be coerced to integers.
 
             model = FFNTracerModel(batch_size=FLAGS.batch_size,
+                                   adv_args=FLAGS.adv_args,
                                    **json.loads(FLAGS.model_args))
             eval_shape_zyx = train_eval_size(model).tolist()[::-1]
 
