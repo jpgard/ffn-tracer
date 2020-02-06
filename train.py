@@ -65,7 +65,7 @@ flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
                   'List of integers equal to a subset of [0, 1, 2] specifying '
                   'which of the [z, y, x] axes, respectively, may be reflected '
                   'in order to augment the training data.')
-flags.DEFINE_integer('adv_update_every_iters', 2,
+flags.DEFINE_integer('ffn_update_every_iters', 2,
                  'the number of adversarial/discriminator update steps to conduct for '
                  'every one FFN update step.')
 flags.DEFINE_string('adv_args', None,
@@ -132,7 +132,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 def is_adversary_update_step(step, model) -> bool:
     is_adversarial_model = hasattr(model,"adversarial_train_op") and \
                            getattr(model, "adversarial_train_op") is not None
-    is_adversarial_turn = not (step % FLAGS.adv_update_every_iters == 0)
+    is_adversarial_turn = not (step % FLAGS.ffn_update_every_iters == 0)
     return (is_adversarial_model and is_adversarial_turn)
 
 def _get_offset_and_scale_map():
