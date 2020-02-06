@@ -20,5 +20,5 @@ def uid_from_flags(flags):
         adv_args = json.loads(flags.adv_args)
         uid += "_adv_"
         uid += "".join([str(k) + str(v) for k, v in adv_args.items()])
-        uid += "ratio{}".format(flags.adv_to_ffn_update_ratio)
+        uid += "updates{}".format(flags.adv_update_every_iters)
     return uid
