@@ -5,7 +5,7 @@ from fftracer.utils.tensor_ops import drop_axis
 
 class DCGAN:
     def __init__(self, input_shape, optimizer_name: str, smooth_labels: bool, dim=2,
-                 noisy_label_mean=0.9, noisy_label_stddev=0.025):
+                 noisy_label_mean=0.9, noisy_label_stddev=0.025, learning_rate=0.0001):
         """
 
         :param input_shape: the shape of the input images, omitting batch size.
@@ -24,6 +24,7 @@ class DCGAN:
         self.smooth_labels = smooth_labels
         self.noisy_label_mean = noisy_label_mean
         self.noisy_label_stddev = noisy_label_stddev
+        self.learning_rate = learning_rate
 
     def predict_discriminator_2d(self, net):
         """
@@ -92,6 +93,6 @@ class DCGAN:
         if self.optimizer_name == "adam":
             # Use the default values from DCGAN paper; they said lower learning rate and
             # beta_1 necessary to improve stability
-            return tf.train.AdamOptimizer(learning_rate=0.0002, beta1=0.5)
+            return tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=0.5)
         elif self.optimizer_name == "sgd":
-            return tf.train.GradientDescentOptimizer(learning_rate=0.0001)
+            return tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
