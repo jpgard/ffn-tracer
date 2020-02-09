@@ -14,7 +14,6 @@ def uid_from_flags(flags):
     # model_args are handled separately; these require some extra logic to parse
     uid += "fov{}".format("".join([str(x) for x in model_args.pop("fov_size")]))
     uid += "loss{}".format(model_args.pop("loss_name"))
-    uid += "deltas{}".format("".join([str(x) for x in model_args.pop("deltas")]))
     uid += "".join([str(k) + str(v) for k,v in model_args.items()])
     if flags.adv_args:
         adv_args = json.loads(flags.adv_args)
