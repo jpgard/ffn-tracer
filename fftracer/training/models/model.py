@@ -118,7 +118,7 @@ class FFNTracerModel(FFNModel):
             "supply adversary_args to FFNTracer constructor"
         return json.loads(self._adv_args)
 
-    def compute_sce_loss(self, logits):
+    def compute_sce_loss(self, logits, add_summary=True, verify_finite=True):
         """Compute the pixelwise sigmoid cross-entropy loss using logits and labels."""
         assert self.labels is not None
         assert self.loss_weights is not None
@@ -126,6 +126,12 @@ class FFNTracerModel(FFNModel):
                                                                 labels=self.labels)
         pixel_ce_loss *= self.loss_weights
         batch_ce_loss = tf.reduce_mean(pixel_ce_loss)
+        if add_summary:
+            tf.summary.scalar('pixel_loss', batch_ce_loss)
+        if verify_finite:
+            batch_ce_loss = tf.verify_tensor_all_finite(
+                batch_ce_loss, 'Invalid loss detected'
+            )
         return batch_ce_loss
 
     def alpha_weight_losses(self, loss_a, loss_b):
@@ -173,12 +179,11 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('ssim_loss', batch_ssim_loss)
 
         # Compute the pixel-wise cross entropy loss
-        batch_ce_loss = self.compute_sce_loss(logits)
-        tf.summary.scalar('pixel_loss', batch_ce_loss)
+        batch_ce_loss = self.compute_sce_loss(logits, add_summary=True,
+                                              verify_finite=True)
 
         self.alpha_weight_losses(batch_ce_loss, batch_ssim_loss)
 
-        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
         return
 
     def set_up_ms_ssim_loss(self, logits):
@@ -251,9 +256,8 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('boundary_loss', batch_boundary_loss)
 
         # Compute the pixel-wise cross entropy loss
-        batch_ce_loss = self.compute_sce_loss(logits)
-
-        tf.summary.scalar('pixel_loss', batch_ce_loss)
+        batch_ce_loss = self.compute_sce_loss(logits, add_summary=True,
+                                              verify_finite=True)
 
         self.alpha_weight_losses(batch_ce_loss, batch_boundary_loss)
 
@@ -264,8 +268,8 @@ class FFNTracerModel(FFNModel):
         enforces 'contnuity' between pixels.
         """
         # Compute the pixel-wise cross entropy loss
-        batch_ce_loss = self.compute_sce_loss(logits)
-        tf.summary.scalar('pixel_loss', batch_ce_loss)
+        batch_ce_loss = self.compute_sce_loss(logits, add_summary=True,
+                                              verify_finite=True)
         row_wise_logits = tf.reshape(logits, [-1], 'FlattenRowWise')
         column_wise_logits = tf.reshape(tf.transpose(logits), [-1], 'FlattenColWise')
         # Compute the l1 continuity loss row-wise, subtracting each element from the
@@ -283,17 +287,16 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
-    def set_up_adversarial_loss(self, logits):
+    def initialize_adversary(self, logits):
         assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
         batch_size, z, y, x, num_channels = logits.get_shape().as_list()
         self.discriminator = DCGAN(input_shape=[y, x, num_channels],
                                    dim=2,
                                    **self.adv_args)
 
-        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] conaining
-        # the predicted probability that each element in the batch is 'real'.
-        pred_fake = self.discriminator.predict_discriminator(logits)
-        pred_true = self.discriminator.predict_discriminator(self.labels)
+    def compute_generator_loss(self, pred_fake, add_summary=True, verify_finite=True):
+        """Compute generator loss using the discriminators' predictions on the generated
+        data."""
 
         # We want the network to produce output which fools the discriminator,
         # so we use cross-entropy loss to measure how close the discriminators'
@@ -301,14 +304,61 @@ class FFNTracerModel(FFNModel):
 
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         generator_loss_batch = cross_entropy(tf.ones_like(pred_fake), pred_fake)
-        self.loss = tf.reduce_mean(generator_loss_batch)
-        tf.summary.scalar('adversarial_loss', self.loss)
-        self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
+        generator_loss = tf.reduce_mean(generator_loss_batch)
+        if add_summary:
+            tf.summary.scalar('adversarial_loss', generator_loss)
+        if verify_finite:
+            generator_loss = tf.verify_tensor_all_finite(generator_loss, 'Invalid loss detected')
+        return generator_loss
+
+    def set_up_adversarial_loss(self, logits):
+        """Set up a (pure) adversarial loss."""
+        self.initialize_adversary(logits)
+
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
+        # the predicted probability that each element in the batch is 'real', according
+        # to the discriminator.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+        generator_loss = self.compute_generator_loss(pred_fake, add_summary=True,
+                                                     verify_finite=True)
+        self.loss = generator_loss
+
 
         # Compute the discriminator loss
         self.discriminator.discriminator_loss(real_output=pred_true,
                                               fake_output=pred_fake)
         return
+
+    def set_up_adversarial_plus_ce_loss(self, logits):
+        """Set up adversarial + sigmoid cross-entropy loss.
+
+        The final loss term is: L = L_adv + L_sce.
+        """
+        self.initialize_adversary(logits)
+
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
+        # the predicted probability that each element in the batch is 'real', according
+        # to the discriminator.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+        batch_generator_loss = self.compute_generator_loss(pred_fake, add_summary=True,
+                                                     verify_finite=True)
+
+        batch_sce_loss = self.compute_sce_loss(logits, add_summary=True,
+                                               verify_finite=True)
+
+        # In the final loss calculation, multiply adversarial_loss by 0.1 so it is on
+        # same order as pixel loss; this results in a roughly equal weighting of both
+        # terms.
+        self.loss = 0.1 * batch_generator_loss + batch_sce_loss
+        tf.summary.scalar('adversarial_plus_ce_loss', self.loss)
+
+        # Compute the discriminator loss
+        self.discriminator.discriminator_loss(real_output=pred_true,
+                                              fake_output=pred_fake)
 
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
@@ -326,6 +376,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_boundary_loss(logit_seed)
         elif self.loss_name == "adversarial":
             self.set_up_adversarial_loss(logit_seed)
+        elif self.loss_name == "adversarial_sce":
+            self.set_up_adversarial_plus_ce_loss(logit_seed)
         else:
             raise NotImplementedError
 
