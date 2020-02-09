@@ -64,13 +64,13 @@ def _predict_object_mask_2d(net, depth=9, self_attention_index=None):
 class FFNTracerModel(FFNModel):
     """Base class for FFN tracing models."""
 
-    def __init__(self, deltas, batch_size=None, dim=3,
+    def __init__(self, deltas=[8, 8, 0], batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
                  l1lambda=1e-3, self_attention_layer=None,
                  adv_args: Optional[dict]=None):
         """
 
-        :param deltas: deltas for training and inference.
+        :param deltas: [x, y, z] deltas for training and inference.
         :param batch_size: training batch size.
         :param dim: number of dimensions of model prediction (e.g. 2 = 2D input/output)
         :param fov_size: [x,y,z] fov size.
