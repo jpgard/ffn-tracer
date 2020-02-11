@@ -101,6 +101,7 @@ class FFNTracerModel(FFNModel):
         self.self_attention_layer = self_attention_layer
         self.discriminator = None
         self.discriminator_loss = None
+        self.adversarial_train_op = None
         # The seed is always a placeholder which is fed externally from the
         # training/inference drivers.
         self.input_seed = tf.placeholder(tf.float32, name='seed')
@@ -381,7 +382,8 @@ class FFNTracerModel(FFNModel):
         else:
             raise NotImplementedError
 
-    def apply_gradients_for_scope(self, opt, loss_op, scope, max_gradient_entry_mag=0.7):
+    def get_gradients_for_scope(self, opt, loss_op, scope, max_gradient_entry_mag=0.7):
+        """Fetch the gradients in the specified scope, clipping if necessary."""
         trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
         grads_and_vars = opt.compute_gradients(loss_op, var_list = trainable_vars)
         for g, v in grads_and_vars:
@@ -401,11 +403,14 @@ class FFNTracerModel(FFNModel):
             loss = self.loss
         tf.summary.scalar('optimizer_loss', self.loss)
 
-        opt = optimizer.optimizer_from_flags()
+        ffn_opt = optimizer.optimizer_from_flags()
+        ffn_grads_and_vars = self.get_gradients_for_scope(
+            ffn_opt, self.loss, 'seed_update')
 
-        d_opt = self.discriminator.get_optimizer()
-
-        ffn_grads_and_vars = self.apply_gradients_for_scope(opt, self.loss, 'seed_update')
+        if self.discriminator:
+            d_opt = self.discriminator.get_optimizer()
+            d_grads_and_vars = self.get_gradients_for_scope(
+                d_opt, self.discriminator.d_loss, self.discriminator.d_scope_name)
 
         trainables = tf.trainable_variables()
         if trainables:
@@ -415,15 +420,13 @@ class FFNTracerModel(FFNModel):
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.train_op = opt.apply_gradients(ffn_grads_and_vars,
+            self.train_op = ffn_opt.apply_gradients(ffn_grads_and_vars,
                                                 global_step=self.global_step,
                                                 name='train')
-            if d_opt:  # Add the adversarial train op to the FFTracer model
-                d_grads_and_vars = self.apply_gradients_for_scope(
-                    d_opt, self.discriminator.d_loss, self.discriminator.d_scope_name)
-                self.adversarial_train_op = d_opt.apply_gradients(d_grads_and_vars,
-                                                              global_step=self.global_step,
-                                                              name='train_adversary')
+            if self.discriminator:  # Add the adversarial train op to the FFTracer model
+                self.adversarial_train_op = d_opt.apply_gradients(
+                    d_grads_and_vars, global_step=self.global_step,
+                    name='train_adversary')
 
     def define_tf_graph(self):
         """Modified for 2D from ffn.training.models.convstack_3d.ConvStack3DFFNModel ."""
