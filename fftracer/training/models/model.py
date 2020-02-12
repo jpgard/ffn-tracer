@@ -351,10 +351,8 @@ class FFNTracerModel(FFNModel):
         batch_sce_loss = self.compute_sce_loss(logits, add_summary=True,
                                                verify_finite=True)
 
-        # In the final loss calculation, multiply adversarial_loss by 0.1 so it is on
-        # same order as pixel loss; this results in a roughly equal weighting of both
-        # terms.
-        self.loss = 0.1 * batch_generator_loss + batch_sce_loss
+        # In the final loss calculation, weight the adversarial loss by l1lambda.
+        self.loss = self.l1lambda * batch_generator_loss + batch_sce_loss
         tf.summary.scalar('adversarial_plus_ce_loss', self.loss)
 
         # Compute the discriminator loss
@@ -385,7 +383,7 @@ class FFNTracerModel(FFNModel):
     def get_gradients_for_scope(self, opt, loss_op, scope, max_gradient_entry_mag=0.7):
         """Fetch the gradients in the specified scope, clipping if necessary."""
         trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
-        grads_and_vars = opt.compute_gradients(loss_op, var_list = trainable_vars)
+        grads_and_vars = opt.compute_gradients(loss_op, var_list=trainable_vars)
         for g, v in grads_and_vars:
             if g is None:
                 tf.logging.error('Gradient is None: %s', v.op.name)
