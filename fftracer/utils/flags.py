@@ -19,5 +19,9 @@ def uid_from_flags(flags):
         adv_args = json.loads(flags.adv_args)
         uid += "_adv_"
         uid += "".join([str(k) + str(v) for k, v in adv_args.items()])
-        uid += "updates{}".format(flags.ffn_update_every_iters)
+        assert not (flags.ffn_update_every_iters and flags.adv_update_every_iters)
+        if flags.ffn_update_every_iters:
+            uid += "ffnupdate{}".format(flags.ffn_update_every_iters)
+        elif flags.adv_update_every_iters:
+            uid += "advupdate{}".format(flags.adv_update_every_iters)
     return uid
