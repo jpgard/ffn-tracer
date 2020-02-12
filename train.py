@@ -10,6 +10,7 @@ python train.py \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
     --max_steps 10000000 \
+    --adv_update_every_iters 5 \
     --optimizer $OPTIMIZER \
     --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
     --adv_args "{\"smooth_labels\": true, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001}" \
