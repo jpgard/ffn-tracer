@@ -12,7 +12,7 @@ python train.py \
     --max_steps 10000000 \
     --adv_update_every_iters 5 \
     --optimizer $OPTIMIZER \
-    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
+    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"l1lambda\": 0.1, \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
     --adv_args "{\"smooth_labels\": true, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001}" \
     --visible_gpus=0,1
 
