@@ -54,6 +54,17 @@ class DCGAN:
             return batch_pred
 
     def predict_discriminator(self, batch):
+        """
+        Use a DCGAN-style discriminator to predict whether a batch is real or fake.
+
+        The discriminator takes a tensor of shape [batch_size, y, x, num_channels] and
+        outputs a single real value indicating whether this is a batch of real or fake
+        samples.
+
+        :param batch: the batch to predict on.
+        :return: a single-element Tensor with the predicted probability that the batch
+        is real.
+        """
         if self.dim == 2:
             return self.predict_discriminator_2d(batch)
         elif self.dim == 3:
@@ -70,10 +81,7 @@ class DCGAN:
             return tf.ones_like(real_output)
 
     def discriminator_loss(self, real_output, fake_output):
-        """Compute the loss for a discriminator.
-
-        returns a Tensor of shape [batch_size, 1].
-        """
+        """Compute the loss for a discriminator and save as self.d_loss ."""
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         # create labels and add noise to the real labels if desired
         real_labels = self.get_real_labels(real_output)
