@@ -309,7 +309,8 @@ class FFNTracerModel(FFNModel):
         if add_summary:
             tf.summary.scalar('adversarial_loss', generator_loss)
         if verify_finite:
-            generator_loss = tf.verify_tensor_all_finite(generator_loss, 'Invalid loss detected')
+            generator_loss = tf.verify_tensor_all_finite(generator_loss,
+                                                         'Invalid loss detected')
         return generator_loss
 
     def set_up_adversarial_loss(self, logits):
