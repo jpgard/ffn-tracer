@@ -9,7 +9,7 @@ from ffn.utils import bounding_box
 from fftracer.datasets import PairedDataset2d
 from mozak.utils.connectors import ImageAPIConnector
 from mozak.datasets.gold_standard import MozakGoldStandardTrace
-from mozak.datasets.trace import nodes_and_edges_to_trace
+from mozak.datasets.trace import nodes_and_edges_to_trace, nodes_and_edges_to_volume
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
 
 # Thresholds to use for uniform sampling of training examples by fraction of active
@@ -112,7 +112,6 @@ class MozakDataset2d(PairedDataset2d):
             data = self.y[slc_zyx[-1:0:-1]]
             fa = (data == self.label_value).mean()
             temp.append(fa)
-        import ipdb;ipdb.set_trace()
         pass
 
     def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
@@ -131,3 +130,52 @@ class MozakDataset2d(PairedDataset2d):
         else:
             raise NotImplementedError
         self.write_training_coordiates(coords, out_dir)
+
+
+class MozakDataset3d(MozakDataset2d):
+    """A container for 3d mozak data."""
+    def load_x_from_dap(self):
+        from mozak.datasets.img import MozakNeuronVolume
+        # TODO(jpgard): find the res_level corresponding to the same resolution as the
+        #  image pixels. This is probably res_level=0, but note that this will be slow
+        #  to load.
+        import ipdb;ipdb.set_trace()
+        volume = MozakNeuronVolume(self.dataset_id, res_level=4)
+        volume.fetch_image()
+        self.x = volume.img
+
+    def load_data(self, gs_dir, data_dir=None):
+        """
+        Load the image data and the gold standard data.
+        :param gs_dir: directory containing gold-standard trace.
+        :return: None.
+        """
+        if not data_dir:
+            self.load_x_from_dap()
+        else:
+            # TODO(jpgard): this should load a 3D file by calling
+            #  MozakNeuronVolume.load_npy();
+            #  currently these are not supported.
+            raise NotImplementedError
+
+        # get the mask data for y
+        gs = MozakGoldStandardTrace(self.dataset_id, gs_dir)
+        gs.fetch_trace()
+        # create "soft labels" map
+        self.y = nodes_and_edges_to_volume(gs.nodes, gs.edges,
+                                           # TODO(jpgard): set all dimensions from 3d data
+                                           imshape=[100,
+                                                    self.x.shape[1],
+                                                    self.x.shape[0]],
+                                           trace_value=self.label_value,
+                                           # TODO(jpgard): migrate code to use 0-1
+                                           #  arrays, not pre-softened arrays.
+                                           pad_value=self.pom_pad
+                                           )
+        import ipdb;ipdb.set_trace()
+        # TODO(jpgard): write the Y volume to slices and then convert to HDF5; then,
+        #  check the results in a viewer to see whether they correspond to the neural
+        #  image and tracing is correct(probably will require some reflection due to
+        #  shifting of axes, at the least).
+        self.check_xy_shapes_match()
+        return
