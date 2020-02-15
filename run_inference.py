@@ -14,7 +14,8 @@ python run_inference.py \
     --image_mean 78 \
     --image_stddev 20 \
     --ckpt_id 10000000 \
-    --move_threshold 0.12
+    --move_threshold 0.12 \
+    --seed_policy TipTracerSeedPolicy
 
 """
 
@@ -76,7 +77,7 @@ flags.DEFINE_string('seed_policy', 'ManualSeedPolicy',
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
+logging.basicConfig(level=logging.DEBUG)
 
 def copy_file_to_tempdir(fp, dirname):
     """Copy the file at fp to dirname, keeping the same base name.
@@ -95,7 +96,6 @@ def copy_file_to_tempdir(fp, dirname):
 
 
 def main(unused_argv):
-
     move_threshold = FLAGS.move_threshold
     fov_size = dict(zip(["z", "y", "x"], [int(i) for i in FLAGS.fov_size]))
     deltas = dict(zip(["z", "y", "x"], [int(i) for i in FLAGS.deltas]))
@@ -104,11 +104,12 @@ def main(unused_argv):
     model_uid = "lr{learning_rate}depth{depth}fov{fov}" \
         .format(learning_rate=FLAGS.lr,
                 depth=FLAGS.depth,
-                fov=max(fov_size.values())
+                fov=max(fov_size.values()),
                 )
     segmentation_output_dir = os.path.join(
         os.getcwd(),
-        FLAGS.out_dir + model_uid + "mt" + str(move_threshold)
+        FLAGS.out_dir + model_uid + "mt" + str(move_threshold) + "policy" +
+        FLAGS.seed_policy
     )
     model_checkpoint_path = "{train_dir}/{model_uid}/model.ckpt-{ckpt_id}"\
         .format(train_dir=FLAGS.train_dir,
@@ -162,7 +163,11 @@ def main(unused_argv):
         # Segmentation is attempted from all valid starting points provided by the seed
         # policy by calling runner.canvas.segment_all().
         runner.run(start_zyx,
-                   size_zyx)
+                   size_zyx,
+                   allow_overlapping_segmentation=True,
+                   # reset_seed_per_segment=False,
+                   # keep_history=True  # this only keeps seed history; not that useful
+                   )
         logging.info("Finished running.")
 
         counter_path = os.path.join(inference_config.segmentation_output_dir, 'counters.txt')
