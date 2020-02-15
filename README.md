@@ -1,5 +1,9 @@
 # ffn-tracer
-Neuron tracing based on flood-filling networks (FFN)
+This is a collection of techniques for neuron tracing based on flood-filling networks (FFN). 
+
+The methods in this repository are primarily intended to adapt FFNs for use in neuron *tracing*, that is, mapping the "circuit" of the neuron as a set of nodes and edges (aka "skeletonization"). In particular, these methods are focused on training FFNs to do tracing on brightfield electron microscopy images (such as that shown below), which tend to be noisier and qualitatively different from the Serial Blockface Scanning Electron Microscopy (SBEM) and Focused Ion Beam Scanning Electron Microscopy (FIB-SEM) used in the original FFN applications.
+
+The repository includes improved methods for training (such as regularization and adversarial training) as well as inference (including re-seeding methods which improve FFN tracing extension into long, thin fibers).
 
 
 ![example neuron](./img/patch_and_label_507727402_f32.png)
