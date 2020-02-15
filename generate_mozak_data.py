@@ -2,6 +2,9 @@
 Generate a dataset of neuron images from Mozak datasets.
 
 usage:
+
+[2d data]
+
 python generate_mozak_data.py \
     --dataset_ids 507727402 521693148 522442346 529751320 565040416 565298596 565636436 \
         565724110 570369389 319215569 397462955 476667707 476912429 495358721 508767079 \
@@ -14,22 +17,35 @@ python generate_mozak_data.py \
     --coord_margin_xy 179 \
     --train_data_sampling proportional_by_dataset
 
+[3d data; load from DAP server when img_dir is not provided]
+python generate_mozak_data.py \
+    --data_dim 3 \
+    --dataset_ids 476667707 \
+    --gs_dir data/gold_standard \
+    --seed_csv data/seed_locations/seed_locations.csv \
+    --out_dir ./data \
+    --coord_margin_xy 179 \
+    --train_data_sampling proportional_by_dataset
+
 """
 
 import argparse
-from fftracer.datasets.mozak import MozakDataset2d
+from fftracer.datasets.mozak import MozakDataset2d, MozakDataset3d
 from fftracer.datasets import SeedDataset, offset_dict_to_csv
 import os.path as osp
 
 
 def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_margin_xy,
-         train_data_sampling, coord_sampling_prob, img_dir=None):
+         train_data_sampling, coord_sampling_prob, data_dim, img_dir=None):
     seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
     neuron_offsets = dict()
     for dataset_id in dataset_ids:
         seed = seeds.get_seed_loc(dataset_id)
-        dset = MozakDataset2d(dataset_id, seed)
+        if data_dim == 2:
+            dset = MozakDataset2d(dataset_id, seed)
+        elif data_dim == 3:
+            dset = MozakDataset3d(dataset_id, seed)
         dset.load_data(gs_dir, img_dir)
         neuron_datasets[dataset_id] = dset
         # write data to a tfrecord file
@@ -76,5 +92,7 @@ if __name__ == "__main__":
                              "'uniform_by_dataset', 'proportional_by_dataset' and "
                              "'balanced_fa' are supported.",
                         required=True)
+    parser.add_argument("--data_dim", help="whether to use 2d or 3d data",
+                        default=2, type=int, choices=[2, 3])
     args = parser.parse_args()
     main(**vars(args))
