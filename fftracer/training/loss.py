@@ -1,6 +1,7 @@
 import numpy as np
 
 from scipy.spatial.distance import pdist, squareform
+from scipy.special import expit
 import ot
 
 def make_distance_matrix(d):
@@ -14,7 +15,6 @@ def make_distance_matrix(d):
 
     # Convert D to a dense matrix of shape (d, d)
     D = squareform(D)
-
     return D
 
 
@@ -34,16 +34,20 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     return hist
 
 
-def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
+def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
+                           y_hat_as_logits=False):
     """
     Solve the optimal transport problem for the image pixels, and return the OT
     permutation matrix Pi.
     :param y: the ground-truth image.
     :param y_hat: the predicted image.
     :param D: the distance matrix; generate via make_distance_matrix(y.shape[0])
+    :param y_hat_as_logits: if True, y_hat is provided as logits.
     :return: Pi, the optimal transport matrix. The (i,j) entry in Pi represents the
     cost of moving pixel i in y_hat to pixel j in y.
     """
+    if y_hat_as_logits:
+        y_hat = expit(y_hat)
     np.testing.assert_array_equal(y.shape[0], y.shape[1]) # check images are square
     np.testing.assert_array_equal(y.shape, y_hat.shape) # check images same size
     y_hist = normalize_to_histogram(y)
