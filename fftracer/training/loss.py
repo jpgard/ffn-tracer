@@ -4,6 +4,7 @@ from scipy.spatial.distance import pdist, squareform
 from scipy.special import expit
 import ot
 
+
 def make_distance_matrix(d):
     """Generate a dense distance matrix of shape (d**2, d**2), where the (i,j)th entry
     represents the euclidean distance between pixels i and j in an image."""
@@ -29,8 +30,9 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     """
     hist = im.flatten().astype(dout)
     hist = hist / hist.sum()
-    assert hist.sum() == 1.0,\
-        "sum of vector after normalization is {}; expected sum of 1.0".format(hist.sum())
+    np.testing.assert_almost_equal(hist.sum(), 1.0, err_msg=
+    "sum of vector after normalization is {}; expected sum of 1.0".format(hist.sum())
+                                   )
     return hist
 
 
@@ -48,12 +50,34 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
     """
     if y_hat_as_logits:
         y_hat = expit(y_hat)
-    np.testing.assert_array_equal(y.shape[0], y.shape[1]) # check images are square
-    np.testing.assert_array_equal(y.shape, y_hat.shape) # check images same size
+    np.testing.assert_array_equal(y.shape[0], y.shape[1])  # check images are square
+    np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
     y_hat_hist = normalize_to_histogram(y_hat)
+    # TODO(jpgard): check for GPU implementation here; if a GPU is visible, use that
+    #  instead.
     PI = ot.emd(y_hat_hist, y_hist, D)
     return PI
+
+
+def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
+                                 y_hat_as_logits=False, batch_dim=0):
+    """Apply compute_ot_loss_matrix() along batch_dim to get Pi for each image.
+
+    Returns np.ndarray of shape [batch_dim, d] where d is the
+    total number of pixels in an image.
+    """
+    pi_batch = list()
+    assert y.shape[-1] == 1, "only one-channel images currently supported"
+    # TODO(jpgard): figure out a faster method than iterating over array.
+    for i in np.arange(y.shape[batch_dim]):
+        y_i = y[i, :, :, 0]
+        y_hat_i = y_hat[i, :, :, 0]
+        PI = compute_ot_loss_matrix(y_i, y_hat_i, D, y_hat_as_logits)
+        pi_batch.append(PI)
+    # concatenate the results into an array
+    pi_batch = np.array(pi_batch)
+    return pi_batch
 
 
 def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
