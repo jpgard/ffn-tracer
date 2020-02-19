@@ -29,7 +29,8 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     """
     hist = im.flatten().astype(dout)
     hist = hist / hist.sum()
-    assert hist.sum() == 1.0
+    assert hist.sum() == 1.0,\
+        "sum of vector after normalization is {}; expected sum of 1.0".format(hist.sum())
     return hist
 
 
@@ -49,3 +50,13 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     y_hat_hist = normalize_to_histogram(y_hat)
     PI = ot.emd(y_hat_hist, y_hist, D)
     return PI
+
+
+def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
+    PI_D = np.multiply(Pi, D)  # elementwise product of Pi and D.
+    source_loss = - PI_D.sum(axis=1)  # sum over j, the target pixels
+    target_loss = PI_D.sum(axis=0)
+    pixel_loss = source_loss + target_loss
+    d = np.sqrt(Pi.shape[0]).astype(int)  # the original square image dimension
+    pixel_loss = pixel_loss.reshape((d, d))
+    return pixel_loss
