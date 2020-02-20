@@ -1,4 +1,6 @@
-class Discriminator:
+from abc import ABC, abstractmethod
+
+class Discriminator(ABC):
     """Parent class that adversarial losses should inherit from."""
 
     def __init__(self, input_shape, optimizer_name: str, smooth_labels: bool, dim=2,
@@ -23,3 +25,18 @@ class Discriminator:
         self.noisy_label_mean = noisy_label_mean
         self.noisy_label_stddev = noisy_label_stddev
         self.learning_rate = learning_rate
+
+    @abstractmethod
+    def predict_discriminator(self, batch):
+        """Make a prediction for the discriminator on a batch of examples."""
+        raise
+
+    @abstractmethod
+    def discriminator_loss(self, real_output, fake_output):
+        """Compute the loss for a discriminator and save as self.d_loss ."""
+        raise
+
+    @abstractmethod
+    def get_optimizer(self):
+        """Instantiate and return an optimizer for this discriminator model."""
+        raise
