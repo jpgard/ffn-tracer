@@ -18,8 +18,8 @@ class DCGAN(Discriminator):
         outputs a single real value indicating whether this is a batch of real or fake
         samples.
         """
-        if self.dim == 2:
-            net = drop_axis(net, axis=1, name="drop_z_2d_discriminator")
+        assert self.dim == 2
+        net = drop_axis(net, axis=1, name="drop_z_2d_discriminator")
         input_batch_shape = net.get_shape().as_list()[1:]
         assert input_batch_shape == self.input_shape, \
             "discriminator input has shape {}, does not match expected shape {}".format(
