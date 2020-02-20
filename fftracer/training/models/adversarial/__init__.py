@@ -45,3 +45,11 @@ class Discriminator(ABC):
     def get_optimizer(self):
         """Instantiate and return an optimizer for this discriminator model."""
         raise
+
+    def check_valid_input_shape(self, input_batch_shape):
+        assert input_batch_shape == self.input_shape, \
+            "discriminator input has shape {}, does not match expected shape {}".format(
+                input_batch_shape, self.input_shape
+            )
+        return
+

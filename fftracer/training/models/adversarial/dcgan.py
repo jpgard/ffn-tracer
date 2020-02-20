@@ -21,10 +21,7 @@ class DCGAN(Discriminator):
         assert self.dim == 2
         net = drop_axis(net, axis=1, name="drop_z_2d_discriminator")
         input_batch_shape = net.get_shape().as_list()[1:]
-        assert input_batch_shape == self.input_shape, \
-            "discriminator input has shape {}, does not match expected shape {}".format(
-                 input_batch_shape, self.input_shape
-            )
+        self.check_valid_input_shape(input_batch_shape)
         with tf.variable_scope(self.d_scope_name, reuse=False):
             net = tf.keras.layers.Conv2D(64, (5, 5), strides=(2, 2), padding='SAME',
                                          input_shape=self.input_shape)(net)
