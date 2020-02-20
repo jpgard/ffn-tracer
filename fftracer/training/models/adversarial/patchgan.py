@@ -33,17 +33,17 @@ class PatchGAN(Discriminator):
                                         padding='SAME',
                                         input_shape=self.input_shape,
                                         activation=tf.nn.leaky_relu)(net)
-            h0 = tf.keras.layers.BatchNormalization(h0)
+            h0 = tf.keras.layers.BatchNormalization()(h0)
             # h0 has shape [FOV/2, FOV/2, self.df_dim]
             h1 = tf.keras.layers.Conv2D(df_dim * 2, kw, strides=(2, 2),
                                         padding='SAME',
                                         activation=tf.nn.leaky_relu)(h0)
-            h1 = tf.keras.layers.BatchNormalization(h1)
+            h1 = tf.keras.layers.BatchNormalization()(h1)
             # h1 has shape [FOV/4, FOV/4, self.df_dim*2]
             h2 = tf.keras.layers.Conv2D(df_dim * 4, kw, strides=(2, 2),
                                         padding='SAME',
                                         activation=tf.nn.leaky_relu)(h1)
-            h2 = tf.keras.layers.BatchNormalization(h2)
+            h2 = tf.keras.layers.BatchNormalization()(h2)
             # h2 has shape [FOV/8, FOV/8, self.df_dim*4]
             h3 = tf.keras.layers.Conv2D(df_dim * 8, kw, strides=(1, 1),
                                         padding='SAME')(h2)
