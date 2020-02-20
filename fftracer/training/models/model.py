@@ -5,12 +5,16 @@ import logging
 import numpy as np
 import math
 from typing import Optional
+from functools import partial
 
 from scipy.ndimage import distance_transform_edt as distance
+from scipy.special import expit
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
 from fftracer.training.models.dcgan import DCGAN
+from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix,\
+    compute_pixel_loss_batch
 import tensorflow as tf
 from fftracer.utils.tensor_ops import drop_axis, add_axis, clip_gradients
 
@@ -112,6 +116,11 @@ class FFNTracerModel(FFNModel):
         self.set_uniform_io_size(fov_size)
 
         self._adv_args = adv_args
+
+        self.D = None
+        if self.loss_name == "ot":
+            # initialize the distance matrix
+            self.D = make_distance_matrix(fov_size[0])
 
     @property
     def adv_args(self):
@@ -360,6 +369,28 @@ class FFNTracerModel(FFNModel):
         self.discriminator.discriminator_loss(real_output=pred_true,
                                               fake_output=pred_fake)
 
+    def set_up_ot_loss(self, logits):
+        """Set up the optimal transport loss."""
+
+        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix, D=self.D)
+
+        # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
+        # dimension.
+
+        # TODO(jpgard): can we use tf.map_fn here instead?
+        # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
+
+        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [logits, self.labels],
+                        [tf.float64], name='GetOTMatrix')
+        pixel_loss_batch = tf.py_func(compute_pixel_loss_batch, [Pi, self.D],
+                                      [tf.float64], name='GetOTPixelLoss')
+        self.loss = tf.reduce_mean(pixel_loss_batch)
+        self.loss = tf.verify_tensor_all_finite(
+            self.loss, 'Invalid loss detected'
+        )
+        tf.summary.scalar('ot_loss', self.loss)
+
+
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
         if self.loss_name == "sigmoid_pixelwise":
@@ -378,6 +409,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_adversarial_loss(logit_seed)
         elif self.loss_name == "adversarial_sce":
             self.set_up_adversarial_plus_ce_loss(logit_seed)
+        elif self.loss_name == "ot":
+            self.set_up_ot_loss(logit_seed)
         else:
             raise NotImplementedError
 
