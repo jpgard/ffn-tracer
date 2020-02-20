@@ -1,3 +1,7 @@
+"""
+Class to emulate the DCGAN discriminator network.
+"""
+
 import tensorflow as tf
 
 from fftracer.utils.tensor_ops import drop_axis
