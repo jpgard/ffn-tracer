@@ -288,7 +288,7 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
-    def initialize_adversary(self, logits):
+    def initialize_dcgan_adversary(self, logits):
         assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
         batch_size, z, y, x, num_channels = logits.get_shape().as_list()
         self.discriminator = DCGAN(input_shape=[y, x, num_channels],
@@ -315,7 +315,7 @@ class FFNTracerModel(FFNModel):
 
     def set_up_adversarial_loss(self, logits):
         """Set up a (pure) adversarial loss."""
-        self.initialize_adversary(logits)
+        self.initialize_dcgan_adversary(logits)
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
         # the predicted probability that each element in the batch is 'real', according
@@ -338,7 +338,7 @@ class FFNTracerModel(FFNModel):
 
         The final loss term is: L = L_adv + L_sce.
         """
-        self.initialize_adversary(logits)
+        self.initialize_dcgan_adversary(logits)
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
         # the predicted probability that each element in the batch is 'real', according
@@ -360,6 +360,9 @@ class FFNTracerModel(FFNModel):
         self.discriminator.discriminator_loss(real_output=pred_true,
                                               fake_output=pred_fake)
 
+    def set_up_patchgan_loss(self, logits):
+        pass
+
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
         if self.loss_name == "sigmoid_pixelwise":
@@ -378,6 +381,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_adversarial_loss(logit_seed)
         elif self.loss_name == "adversarial_sce":
             self.set_up_adversarial_plus_ce_loss(logit_seed)
+        elif self.loss_name == "patchgan":
+            self.set_up_patchgan_loss(logit_seed)
         else:
             raise NotImplementedError
 
