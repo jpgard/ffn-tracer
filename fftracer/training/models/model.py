@@ -10,7 +10,8 @@ from scipy.ndimage import distance_transform_edt as distance
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
-from fftracer.training.models.dcgan import DCGAN
+from fftracer.training.models.adversarial.dcgan import DCGAN
+from fftracer.training.models.adversarial.patchgan import PatchGAN
 import tensorflow as tf
 from fftracer.utils.tensor_ops import drop_axis, add_axis, clip_gradients
 
@@ -67,7 +68,7 @@ class FFNTracerModel(FFNModel):
     def __init__(self, deltas=[8, 8, 0], batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
                  l1lambda=1e-3, self_attention_layer=None,
-                 adv_args: Optional[dict]=None):
+                 adv_args: Optional[dict] = None):
         """
 
         :param deltas: [x, y, z] deltas for training and inference.
@@ -115,7 +116,7 @@ class FFNTracerModel(FFNModel):
 
     @property
     def adv_args(self):
-        assert self._adv_args is not None,\
+        assert self._adv_args is not None, \
             "supply adversary_args to FFNTracer constructor"
         return json.loads(self._adv_args)
 
@@ -229,9 +230,9 @@ class FFNTracerModel(FFNModel):
         # to normalize the boundary loss and constrain it to the range (0,1) so it does
         # not dominate the loss function (otherwise boundary loss can take extreme
         # values, particularly as image size grows).
-        max_dist = math.sqrt((self.fov_size[0] - 1)**2 +
-                             (self.fov_size[1] - 1)**2 +
-                             (self.fov_size[2] - 1)**2)
+        max_dist = math.sqrt((self.fov_size[0] - 1) ** 2 +
+                             (self.fov_size[1] - 1) ** 2 +
+                             (self.fov_size[2] - 1) ** 2)
 
         def calc_dist_map(seg):
             """Calculate the distance map for a ground truth segmentation."""
@@ -250,8 +251,8 @@ class FFNTracerModel(FFNModel):
 
         # Compute the boundary loss
         y_true_dist_map = tf.py_func(func=calc_dist_map_batch,
-                                         inp=[self.labels],
-                                         Tout=tf.float32)
+                                     inp=[self.labels],
+                                     Tout=tf.float32)
         boundary_loss = tf.math.multiply(logits, y_true_dist_map, "SurfaceLoss")
         batch_boundary_loss = tf.reduce_mean(boundary_loss)
         tf.summary.scalar('boundary_loss', batch_boundary_loss)
@@ -275,7 +276,7 @@ class FFNTracerModel(FFNModel):
         column_wise_logits = tf.reshape(tf.transpose(logits), [-1], 'FlattenColWise')
         # Compute the l1 continuity loss row-wise, subtracting each element from the
         # next element row-wise
-        row_loss = row_wise_logits - tf.concat([row_wise_logits[1:], [0,]], 0)
+        row_loss = row_wise_logits - tf.concat([row_wise_logits[1:], [0, ]], 0)
         row_loss = tf.abs(row_loss)
         # Compute the l1 continuity loss column-wise.
         column_loss = column_wise_logits - tf.concat([column_wise_logits[1:], [0, ]], 0)
@@ -288,12 +289,19 @@ class FFNTracerModel(FFNModel):
         tf.summary.scalar('loss', self.loss)
         self.loss = tf.verify_tensor_all_finite(self.loss, 'Invalid loss detected')
 
-    def initialize_dcgan_adversary(self, logits):
+    def initialize_adversary(self, logits, type):
         assert logits.get_shape().as_list() == self.labels.get_shape().as_list()
         batch_size, z, y, x, num_channels = logits.get_shape().as_list()
-        self.discriminator = DCGAN(input_shape=[y, x, num_channels],
-                                   dim=2,
-                                   **self.adv_args)
+        if type == "dcgan":
+            self.discriminator = DCGAN(input_shape=[y, x, num_channels],
+                                       dim=2,
+                                       **self.adv_args)
+        elif type == "patchgan":
+            self.discriminator = PatchGAN(input_shape=[y, x, num_channels],
+                                          dim=2,
+                                          **self.adv_args)
+        else:
+            raise NotImplementedError
 
     def compute_generator_loss(self, pred_fake, add_summary=True, verify_finite=True):
         """Compute generator loss using the discriminators' predictions on the generated
@@ -315,7 +323,7 @@ class FFNTracerModel(FFNModel):
 
     def set_up_adversarial_loss(self, logits):
         """Set up a (pure) adversarial loss."""
-        self.initialize_dcgan_adversary(logits)
+        self.initialize_adversary(logits, type="dcgan")
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
         # the predicted probability that each element in the batch is 'real', according
@@ -327,7 +335,6 @@ class FFNTracerModel(FFNModel):
                                                      verify_finite=True)
         self.loss = generator_loss
 
-
         # Compute the discriminator loss
         self.discriminator.discriminator_loss(real_output=pred_true,
                                               fake_output=pred_fake)
@@ -338,7 +345,7 @@ class FFNTracerModel(FFNModel):
 
         The final loss term is: L = L_adv + L_sce.
         """
-        self.initialize_dcgan_adversary(logits)
+        self.initialize_adversary(logits, type="dcgan")
 
         # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
         # the predicted probability that each element in the batch is 'real', according
@@ -347,7 +354,7 @@ class FFNTracerModel(FFNModel):
         pred_true = self.discriminator.predict_discriminator(self.labels)
 
         batch_generator_loss = self.compute_generator_loss(pred_fake, add_summary=True,
-                                                     verify_finite=True)
+                                                           verify_finite=True)
 
         batch_sce_loss = self.compute_sce_loss(logits, add_summary=True,
                                                verify_finite=True)
@@ -361,6 +368,7 @@ class FFNTracerModel(FFNModel):
                                               fake_output=pred_fake)
 
     def set_up_patchgan_loss(self, logits):
+
         pass
 
     def set_up_loss(self, logit_seed):
@@ -425,8 +433,8 @@ class FFNTracerModel(FFNModel):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             self.train_op = ffn_opt.apply_gradients(ffn_grads_and_vars,
-                                                global_step=self.global_step,
-                                                name='train')
+                                                    global_step=self.global_step,
+                                                    name='train')
             if self.discriminator:  # Add the adversarial train op to the FFTracer model
                 self.adversarial_train_op = d_opt.apply_gradients(
                     d_grads_and_vars, global_step=self.global_step,
@@ -455,7 +463,7 @@ class FFNTracerModel(FFNModel):
         # Create a summary histogram for the predictions; this allows for monitoring of
         # whether the predicted distribution is moving toward the desired
         # `bathtub-shaped` distribution of the ground truth.
-        
+
         tf.summary.histogram("preds/sigmoid", self.logistic)
 
         if self.labels is not None:
