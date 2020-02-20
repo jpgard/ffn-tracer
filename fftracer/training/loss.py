@@ -36,8 +36,7 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     return hist
 
 
-def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
-                           y_hat_as_logits=False):
+def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     """
     Solve the optimal transport problem for the image pixels, and return the OT
     permutation matrix Pi.
@@ -48,8 +47,8 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
     :return: Pi, the optimal transport matrix. The (i,j) entry in Pi represents the
     cost of moving pixel i in y_hat to pixel j in y.
     """
-    if y_hat_as_logits:
-        y_hat = expit(y_hat)
+    assert np.all(y >= 0), "expect nonnegative labels; perhaps handle logits here."
+    assert np.all(y_hat >= 0), "expect nonnegative preds; perhaps handle logits here."
     np.testing.assert_array_equal(y.shape[0], y.shape[1])  # check images are square
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
@@ -60,20 +59,19 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
     return PI
 
 
-def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
-                                 y_hat_as_logits=False, batch_dim=0):
+def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     """Apply compute_ot_loss_matrix() along batch_dim to get Pi for each image.
 
     Returns np.ndarray of shape [batch_dim, d] where d is the
-    total number of pixels in an image.
+    total number of pixels in an image. Assumes first axis of y and y_hat is batch_dim.
     """
     pi_batch = list()
     assert y.shape[-1] == 1, "only one-channel images currently supported"
     # TODO(jpgard): figure out a faster method than iterating over array.
-    for i in np.arange(y.shape[batch_dim]):
+    for i in np.arange(y.shape[0]):
         y_i = y[i, :, :, 0]
         y_hat_i = y_hat[i, :, :, 0]
-        PI = compute_ot_loss_matrix(y_i, y_hat_i, D, y_hat_as_logits)
+        PI = compute_ot_loss_matrix(y_i, y_hat_i, D)
         pi_batch.append(PI)
     # concatenate the results into an array
     pi_batch = np.array(pi_batch)
@@ -88,3 +86,18 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
     d = np.sqrt(Pi.shape[0]).astype(int)  # the original square image dimension
     pixel_loss = pixel_loss.reshape((d, d))
     return pixel_loss
+
+
+def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray):
+    """Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
+
+    Returns np.ndarray of shape [batch_dim, d, d] where where d is the length of one
+    side of the square input image. Assumes first axis of Pi is batch_dim.
+    """
+    image_pixel_loss = list()
+    for i in np.arange(Pi.shape[0]):
+        Pi_i = Pi[i, :, :]
+        pixel_loss_i = compute_pixel_loss(Pi_i, D)
+        image_pixel_loss.append(pixel_loss_i)
+    pixel_loss_batch = np.array(image_pixel_loss)
+    return pixel_loss_batch
