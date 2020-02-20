@@ -28,7 +28,12 @@ class Discriminator(ABC):
 
     @abstractmethod
     def predict_discriminator(self, batch):
-        """Make a prediction for the discriminator on a batch of examples."""
+        """Make a prediction for the discriminator on a batch of examples.
+
+        The discriminator takes a tensor of shape [batch_size, y, x, num_channels] and
+        outputs a single real value indicating whether this is a batch of real or fake
+        samples.
+        """
         raise
 
     @abstractmethod
