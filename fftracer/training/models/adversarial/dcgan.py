@@ -78,10 +78,3 @@ class DCGAN(Discriminator):
         tf.summary.scalar('discriminator_loss', self.d_loss)
         return
 
-    def get_optimizer(self):
-        if self.optimizer_name == "adam":
-            # Use the default values from DCGAN paper; they said lower learning rate and
-            # beta_1 necessary to improve stability
-            return tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=0.5)
-        elif self.optimizer_name == "sgd":
-            return tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import tensorflow as tf
 
 class Discriminator(ABC):
     """Parent class that adversarial losses should inherit from."""
@@ -41,11 +42,6 @@ class Discriminator(ABC):
         """Compute the loss for a discriminator and save as self.d_loss ."""
         raise
 
-    @abstractmethod
-    def get_optimizer(self):
-        """Instantiate and return an optimizer for this discriminator model."""
-        raise
-
     def check_valid_input_shape(self, input_batch_shape):
         assert input_batch_shape == self.input_shape, \
             "discriminator input has shape {}, does not match expected shape {}".format(
@@ -53,3 +49,12 @@ class Discriminator(ABC):
             )
         return
 
+    def get_optimizer(self):
+        """Instantiate and return an optimizer for this discriminator model."""
+
+        if self.optimizer_name == "adam":
+            # Use the default values from DCGAN paper; they said lower learning rate and
+            # beta_1 necessary to improve stability
+            return tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=0.5)
+        elif self.optimizer_name == "sgd":
+            return tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
