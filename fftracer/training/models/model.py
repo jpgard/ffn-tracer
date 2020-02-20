@@ -447,6 +447,12 @@ class FFNTracerModel(FFNModel):
         self.logits = logit_seed
         self.logistic = tf.sigmoid(logit_seed)
 
+        # Create a summary histogram for the predictions; this allows for monitoring of
+        # whether the predicted distribution is moving toward the desired
+        # `bathtub-shaped` distribution of the ground truth.
+        
+        tf.summary.histogram("preds/sigmoid", self.logistic)
+
         if self.labels is not None:
             self.set_up_loss(logit_seed)
             self.set_up_optimizer()
