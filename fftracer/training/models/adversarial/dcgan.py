@@ -26,8 +26,8 @@ def spectral_norm(w, layer, iteration=1):
     w_shape = w.shape.as_list()
     w = tf.reshape(w, [-1, w_shape[-1]])
     u_hat = tf.get_variable("u_hat/{}".format(layer), [1, w_shape[-1]],
-                        initializer=tf.random_normal_initializer(),
-                        trainable=False)
+                            initializer=tf.random_normal_initializer(),
+                            trainable=False)
     # Initialize empty v_hat and run power iteration
     v_hat = None
     for i in range(iteration):
