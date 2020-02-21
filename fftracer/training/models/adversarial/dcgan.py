@@ -41,7 +41,7 @@ def spectral_norm(w, layer, iteration=1):
     # Approximate the spectral norm of W using the results of power iteration
     sigma = tf.matmul(tf.matmul(v_hat, w), tf.transpose(u_hat))  # Equation (19)
     # Normalize W and reshape to its original shape
-    with tf.control_dependencies([u_hat.assign(u_hat)]):
+    with tf.control_dependencies([sigma]):
         w_norm = w / sigma
         w_norm = tf.reshape(w_norm, w_shape)
     return w_norm
