@@ -430,7 +430,7 @@ class FFNTracerModel(FFNModel):
         elif self.loss_name == "patchgan":
             self.set_up_patchgan_loss(logit_seed)
         elif self.loss_name == "patchgan_sce":
-            self.set_up_patchgan_loss(logit_seed)
+            self.set_up_patchgan_plus_ce_loss(logit_seed)
         else:
             raise NotImplementedError
 
