@@ -10,7 +10,7 @@ from fftracer.utils.tensor_ops import drop_axis
 from fftracer.training.models.adversarial import Discriminator
 
 
-def spectral_norm(w, iteration=1):
+def spectral_norm(w, layer, iteration=1):
     """
     Compute the spectral norm of weight matrix w via the power iteration method.
 
@@ -23,10 +23,12 @@ def spectral_norm(w, iteration=1):
     """
     w_shape = w.shape.as_list()
     w = tf.reshape(w, [-1, w_shape[-1]])
-
-    u = tf.get_variable("u", [1, w_shape[-1]], initializer=tf.random_normal_initializer(),
-                        trainable=False, reuse=True)
-
+    # TODO(jpgard): u will have a different shape for each layer, so it needs to be
+    #  initialized separately. Currently using a hack to name it, but this may not
+    #  scale to multiple models due to duplicate layer names (depends on variable scoping)
+    u = tf.get_variable("u/{}".format(layer), [1, w_shape[-1]],
+                        initializer=tf.random_normal_initializer(),
+                        trainable=False)
     u_hat = u
     v_hat = None
     for i in range(iteration):
@@ -61,17 +63,17 @@ class DCGAN(Discriminator):
             return partial(tf.keras.layers.Conv2D, kernel_size=(k, k), strides=(s, s),
                            padding='SAME', activation=tf.nn.leaky_relu)
         else:
-            def conv_spectral_norm(x, filters, layer):
-                in_channels = x.get_shape()[-1]
-                w = tf.get_variable("kernel/{}".format(layer),
-                                    shape=[k, k, in_channels, filters])
-                b = tf.get_variable("bias/{}".format(layer), [in_channels],
-                                    initializer=tf.constant_initializer(0.0))
-                filter_tensor = spectral_norm(w)
-                print("conv_spectral_norm(): filter tensor shape: {}".format(
-                    filter_tensor.get_shape().as_list()))
-                return tf.nn.conv2d(input=x, filter=filter_tensor,
-                                    strides=[s, s], padding='SAME') + b
+            def conv_spectral_norm(net, filters, layer):
+                in_channels = net.get_shape()[-1]
+                weights = tf.get_variable("kernel/{}".format(layer),
+                                          shape=[k, k, in_channels, filters])
+                bias = tf.get_variable("bias/{}".format(layer), [filters],
+                                       initializer=tf.constant_initializer(0.0))
+                filter_tensor = spectral_norm(weights, layer)
+                print("layer {} conv_spectral_norm(): filter tensor shape: {}".format(
+                    layer, filter_tensor.get_shape().as_list()))
+                return tf.nn.conv2d(input=net, filter=filter_tensor,
+                                    strides=[s, s], padding='SAME') + bias
 
             return conv_spectral_norm
 
@@ -81,8 +83,12 @@ class DCGAN(Discriminator):
 
         with tf.variable_scope(self.d_scope_name, reuse=False):
             net = conv(filters=64, input_shape=self.input_shape)(net)
+            # net is Tensor of shape [batch_size, k**2, k**2, 64]
+            # (so [batch_size, 25, 25, 64] with kernel of size 5)
             net = tf.keras.layers.Dropout(0.3)(net)
             net = conv(filters=128)(net)
+            # net is Tensor of shape [batch_size, k**2 // 2 + 1, k**2 // 2 + 1, 64]
+            # (so [batch_size, 13, 13, 128] with kernel of size 5)
             net = tf.keras.layers.Dropout(0.3)(net)
             net = tf.keras.layers.Flatten()(net)
             batch_pred = tf.keras.layers.Dense(1)(net)
@@ -94,10 +100,10 @@ class DCGAN(Discriminator):
         with tf.variable_scope(self.d_scope_name, reuse=False):
             # net is a Tensor of shape [batch_size, y, x, num_channels]
             net = conv(net, filters=64, layer=1)
-            # net is a Tensor of shape [batch_size, y, x, 64] ?
-            import ipdb;ipdb.set_trace()
+            assert net.get_shape().as_list() == [4, 25, 25, 64]
             net = tf.keras.layers.Dropout(0.3)(net)
             net = conv(net, filters=128, layer=2)
+            assert net.get_shape().as_list() == [4, 13, 13, 128]
             net = tf.keras.layers.Dropout(0.3)(net)
             net = tf.keras.layers.Flatten()(net)
             batch_pred = tf.keras.layers.Dense(1)(net)
