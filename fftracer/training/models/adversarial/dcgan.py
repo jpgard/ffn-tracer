@@ -25,7 +25,7 @@ def spectral_norm(w, iteration=1):
     w = tf.reshape(w, [-1, w_shape[-1]])
 
     u = tf.get_variable("u", [1, w_shape[-1]], initializer=tf.random_normal_initializer(),
-                        trainable=False)
+                        trainable=False, reuse=True)
 
     u_hat = u
     v_hat = None
@@ -61,12 +61,16 @@ class DCGAN(Discriminator):
             return partial(tf.keras.layers.Conv2D, kernel_size=(k, k), strides=(s, s),
                            padding='SAME', activation=tf.nn.leaky_relu)
         else:
-            def conv_spectral_norm(x, filters):
-                w = tf.get_variable("kernel",
-                                    shape=[k, k, filters, channels])
-                b = tf.get_variable("bias", [channels],
+            def conv_spectral_norm(x, filters, layer):
+                in_channels = x.get_shape()[-1]
+                w = tf.get_variable("kernel/{}".format(layer),
+                                    shape=[k, k, in_channels, filters])
+                b = tf.get_variable("bias/{}".format(layer), [in_channels],
                                     initializer=tf.constant_initializer(0.0))
-                return tf.nn.conv2d(input=x, filter=spectral_norm(w),
+                filter_tensor = spectral_norm(w)
+                print("conv_spectral_norm(): filter tensor shape: {}".format(
+                    filter_tensor.get_shape().as_list()))
+                return tf.nn.conv2d(input=x, filter=filter_tensor,
                                     strides=[s, s], padding='SAME') + b
 
             return conv_spectral_norm
@@ -88,9 +92,12 @@ class DCGAN(Discriminator):
         """Implements a DCGAN discriminator model with spectral normalization"""
         conv = self.get_conv()
         with tf.variable_scope(self.d_scope_name, reuse=False):
-            net = conv(net, filters=64)
+            # net is a Tensor of shape [batch_size, y, x, num_channels]
+            net = conv(net, filters=64, layer=1)
+            # net is a Tensor of shape [batch_size, y, x, 64] ?
+            import ipdb;ipdb.set_trace()
             net = tf.keras.layers.Dropout(0.3)(net)
-            net = conv(net, filters=128)
+            net = conv(net, filters=128, layer=2)
             net = tf.keras.layers.Dropout(0.3)(net)
             net = tf.keras.layers.Flatten()(net)
             batch_pred = tf.keras.layers.Dense(1)(net)
@@ -107,6 +114,7 @@ class DCGAN(Discriminator):
         # check the inputs and drop the z-axis
         assert self.dim == 2
         net = drop_axis(net, axis=1, name="drop_z_2d_discriminator")
+        # net is a Tensor of shape [batch_size, y, x, num_channels]
         input_batch_shape = net.get_shape().as_list()[1:]
         self.check_valid_input_shape(input_batch_shape)
 
