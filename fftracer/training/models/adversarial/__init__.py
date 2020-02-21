@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 import tensorflow as tf
 
 
@@ -11,8 +12,9 @@ class Discriminator(ABC):
     """
 
     def __init__(self, input_shape, optimizer_name: str, smooth_labels: bool, dim=2,
-                 d_scope_name='dcgan_discriminator',
-                 noisy_label_mean=0.9, noisy_label_stddev=0.025, learning_rate=0.0001):
+                 d_scope_name='discriminator',
+                 noisy_label_mean=0.9, noisy_label_stddev=0.025, learning_rate=0.0001,
+                 spectral_normalization=False):
         """
 
         :param input_shape: the shape of the input images, omitting batch size.
@@ -32,9 +34,15 @@ class Discriminator(ABC):
         self.noisy_label_mean = noisy_label_mean
         self.noisy_label_stddev = noisy_label_stddev
         self.learning_rate = learning_rate
+        self.spectral_normalization = spectral_normalization
 
     @abstractmethod
     def predict_discriminator_2d(self, batch):
+        raise
+
+    @abstractmethod
+    def get_conv(self):
+        """Get the convolution operation."""
         raise
 
     def predict_discriminator(self, batch):
