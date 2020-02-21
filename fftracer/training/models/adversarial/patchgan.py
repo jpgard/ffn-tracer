@@ -58,9 +58,9 @@ class PatchGAN(Discriminator):
             # See https://machinelearningmastery.com/a-gentle-introduction-to-pix2pix
             # -generative-adversarial-network/
             outputs = tf.reshape(h3, [batch_size, -1])
-            outputs = tf.math.reduce_sum(outputs, axis=0)
+            outputs = tf.math.reduce_sum(outputs, axis=1)
             # outputs should have shape [batch_size,]
-            assert tf.get_shape.as_list(outputs) == [batch_size, ]
+            assert outputs.get_shape().as_list() == [batch_size, ]
             return outputs
 
     def predict_discriminator(self, batch):
@@ -68,7 +68,4 @@ class PatchGAN(Discriminator):
             return self.predict_discriminator_2d(batch)
         elif self.dim == 3:
             raise NotImplementedError
-
-    def discriminator_loss(self, real_output, fake_output):
-        pass
 
