@@ -368,8 +368,46 @@ class FFNTracerModel(FFNModel):
                                               fake_output=pred_fake)
 
     def set_up_patchgan_loss(self, logits):
+        self.initialize_adversary(logits, type="patchgan")
 
-        pass
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
+        # the predicted probability that each element in the batch is 'real', according
+        # to the discriminator.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+        batch_generator_loss = self.compute_generator_loss(pred_fake, add_summary=True,
+                                                           verify_finite=True)
+        self.loss = batch_generator_loss
+        tf.summary.scalar('patchgan_loss', self.loss)
+        # Compute the discriminator loss
+        self.discriminator.discriminator_loss(real_output=pred_true,
+                                              fake_output=pred_fake)
+
+    def set_up_patchgan_plus_ce_loss(self, logits):
+        self.initialize_adversary(logits, type="patchgan")
+
+        # pred_fake and pred_true are both Tensors of shape [batch_size, 1] containing
+        # the predicted probability that each element in the batch is 'real', according
+        # to the discriminator.
+        pred_fake = self.discriminator.predict_discriminator(logits)
+        pred_true = self.discriminator.predict_discriminator(self.labels)
+
+        batch_generator_loss = self.compute_generator_loss(pred_fake, add_summary=True,
+                                                           verify_finite=True)
+        self.loss = batch_generator_loss
+        tf.summary.scalar('patchgan_loss', self.loss)
+
+        batch_sce_loss = self.compute_sce_loss(logits, add_summary=True,
+                                               verify_finite=True)
+
+        # In the final loss calculation, weight the adversarial loss by l1lambda.
+        self.loss = self.l1lambda * batch_generator_loss + batch_sce_loss
+        tf.summary.scalar('patchgan_plus_ce_loss', self.loss)
+
+        # Compute the discriminator loss
+        self.discriminator.discriminator_loss(real_output=pred_true,
+                                              fake_output=pred_fake)
 
     def set_up_loss(self, logit_seed):
         """Set up the loss function of the model."""
@@ -390,6 +428,8 @@ class FFNTracerModel(FFNModel):
         elif self.loss_name == "adversarial_sce":
             self.set_up_adversarial_plus_ce_loss(logit_seed)
         elif self.loss_name == "patchgan":
+            self.set_up_patchgan_loss(logit_seed)
+        elif self.loss_name == "patchgan_sce":
             self.set_up_patchgan_loss(logit_seed)
         else:
             raise NotImplementedError
