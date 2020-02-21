@@ -23,30 +23,25 @@ def spectral_norm(w, layer, iteration=1):
     """
     w_shape = w.shape.as_list()
     w = tf.reshape(w, [-1, w_shape[-1]])
-    # TODO(jpgard): u will have a different shape for each layer, so it needs to be
-    #  initialized separately. Currently using a hack to name it, but this may not
-    #  scale to multiple models due to duplicate layer names (depends on variable scoping)
-    u = tf.get_variable("u/{}".format(layer), [1, w_shape[-1]],
+    u_hat = tf.get_variable("u_hat/{}".format(layer), [1, w_shape[-1]],
                         initializer=tf.random_normal_initializer(),
                         trainable=False)
-    u_hat = u
+    # Initialize empty v_hat and run power iteration
     v_hat = None
     for i in range(iteration):
         v_ = tf.matmul(u_hat, tf.transpose(w))
-        v_hat = tf.nn.l2_normalize(v_)
-
+        v_hat = tf.nn.l2_normalize(v_)  # This is Equation (20) of Algorithm 1 in paper
         u_ = tf.matmul(v_hat, w)
-        u_hat = tf.nn.l2_normalize(u_)
-
+        u_hat = tf.nn.l2_normalize(u_)  # This is Equation (21) in paper
+    # Stop gradients so u_hat and v_hat are not updated by the optimizer
     u_hat = tf.stop_gradient(u_hat)
     v_hat = tf.stop_gradient(v_hat)
-
-    sigma = tf.matmul(tf.matmul(v_hat, w), tf.transpose(u_hat))
-
-    with tf.control_dependencies([u.assign(u_hat)]):
+    # Approximate the spectral norm of W using the results of power iteration
+    sigma = tf.matmul(tf.matmul(v_hat, w), tf.transpose(u_hat))  # Equation (19)
+    # Normalize W and reshape to its original shape
+    with tf.control_dependencies([u_hat.assign(u_hat)]):
         w_norm = w / sigma
         w_norm = tf.reshape(w_norm, w_shape)
-
     return w_norm
 
 
