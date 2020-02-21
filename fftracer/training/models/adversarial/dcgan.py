@@ -14,7 +14,9 @@ def spectral_norm(w, layer, iteration=1):
     """
     Compute the spectral norm of weight matrix w via the power iteration method.
 
-    Adapted from https://github.com/taki0112/Spectral_Normalization-Tensorflow .
+    The equations reference the arXiv version of the ICLR 2018 paper, which can be
+    accessed at https://arxiv.org/abs/1802.05957 .
+    Code adapted from https://github.com/taki0112/Spectral_Normalization-Tensorflow .
 
     :param w: The weight matrix to normalize.
     :param iteration: Number of iterations of the power iteration step to perform. Note
