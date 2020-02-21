@@ -97,7 +97,7 @@ class DCGAN(Discriminator):
     def predict_spectralnorm_dcgan_2d(self, net):
         """Implements a DCGAN discriminator model with spectral normalization"""
         conv = self.get_conv()
-        with tf.variable_scope(self.d_scope_name, reuse=False):
+        with tf.variable_scope(self.d_scope_name, reuse=tf.AUTO_REUSE):
             # net is a Tensor of shape [batch_size, y, x, num_channels]
             net = conv(net, filters=64, layer=1)
             assert net.get_shape().as_list() == [4, 25, 25, 64]
