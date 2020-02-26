@@ -74,7 +74,10 @@ class PairedDataset2d(ABC):
 
     def write_training_coordiates(self, coords, out_dir):
         """Write coords to out_dir as tfrecord."""
-        tfrecord_filepath = osp.join(out_dir, "coords",
+        coord_dir = osp.join(out_dir, "coords")
+        if not os.path.exists(coord_dir):
+            os.makedirs(coord_dir)
+        tfrecord_filepath = osp.join(coord_dir,
                                      self.dataset_id + "_coords.tfrecord")
         record_options = tf.io.TFRecordOptions(
             tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
