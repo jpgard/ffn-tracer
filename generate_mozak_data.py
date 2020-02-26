@@ -31,7 +31,7 @@ python generate_mozak_data.py \
 
 import argparse
 from fftracer.datasets.mozak import MozakDataset2d, MozakDataset3d
-from fftracer.datasets import SeedDataset, offset_dict_to_csv
+from fftracer.datasets import offset_dict_to_csv
 import os.path as osp
 
 
