@@ -61,9 +61,6 @@ class PairedDataset2d(ABC):
         feature = {
             'shape_x': _int64_feature([self.shape[1]]),
             'shape_y': _int64_feature([self.shape[0]]),
-            'seed_x': _int64_feature([self.seed.x]),
-            'seed_y': _int64_feature([self.seed.y]),
-            'seed_z': _int64_feature([self.seed.z]),
             'image_raw': tf.train.Feature(
                 float_list=tf.train.FloatList(value=self.x.flatten().tolist())
             ),
@@ -113,18 +110,3 @@ class PairedDataset2d(ABC):
     def fetch_mean_and_std(self):
         """Fetch the mean and std for use as offsets during training."""
         return self.x.mean(), self.x.std()
-
-
-
-class SeedDataset:
-    def __init__(self, seed_csv):
-        self.seeds = pd.read_csv(seed_csv,
-                                 dtype={"dataset_id": object, "x": int, "y": int,
-                                        "z": int}).set_index("dataset_id")
-
-    def get_seed_loc(self, dataset_id: str):
-        try:
-            seed_loc = self.seeds.loc[dataset_id, :]
-            return Seed(seed_loc.seed_x, seed_loc.seed_y, seed_loc.seed_z)
-        except Exception as e:
-            print("[WARNING]: see not found for dataset_id %s" % (dataset_id))
