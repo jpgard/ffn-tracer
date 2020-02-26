@@ -7,6 +7,7 @@ from collections import namedtuple
 from typing import Optional
 
 import pandas as pd
+import os
 import os.path as osp
 import tensorflow as tf
 
@@ -100,7 +101,11 @@ class PairedDataset2d(ABC):
         pass
 
     def write_tfrecord(self, out_dir):
-        tfrecord_filepath = osp.join(out_dir, "tfrecords", self.dataset_id + ".tfrecord")
+        tfrecord_dir = osp.join(out_dir, "tfrecords")
+        if not osp.exists(tfrecord_dir):
+            os.makedirs(tfrecord_dir)
+
+        tfrecord_filepath = osp.join(tfrecord_dir, self.dataset_id + ".tfrecord")
         with tf.io.TFRecordWriter(tfrecord_filepath) as writer:
             example = self.serialize_example()
             writer.write(example)
