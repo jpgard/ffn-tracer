@@ -17,11 +17,14 @@ from fftracer.utils.features import _int64_feature, _bytes_feature
 Seed = namedtuple('Seed', ['x', 'y', 'z'])
 
 
-def offset_dict_to_csv(offset_dict, fp):
-    """Write a dictionary with {dataset_id: (mean, std)} structure to a csv at fp. """
+def offset_dict_to_csv(offset_dict, out_dir):
+    """Write a dictionary with {dataset_id: (mean, std)} structure to a csv at out_dir. """
+    if not osp.exists(out_dir):
+        os.makedirs(out_dir)
+    out_fp = osp.join(out_dir, "offsets.csv")
     df = pd.DataFrame.from_dict(offset_dict, orient="index").reset_index()
     df.columns = ["dataset_id", "mean", "std"]
-    df.to_csv(fp, index=False)
+    df.to_csv(out_fp, index=False)
 
 
 class PairedDataset2d(ABC):

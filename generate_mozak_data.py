@@ -34,6 +34,10 @@ from fftracer.datasets.mozak import MozakDataset2d, MozakDataset3d
 from fftracer.datasets import offset_dict_to_csv
 import os.path as osp
 
+from PIL import Image
+# Disable PIL DecompressionBombError for large images
+Image.MAX_IMAGE_PIXELS = None
+
 
 def main(dataset_ids, gs_dir, out_dir, num_training_coords, coord_margin_xy,
          train_data_sampling, coord_sampling_prob, data_dim, img_dir=None):
@@ -56,7 +60,7 @@ def main(dataset_ids, gs_dir, out_dir, num_training_coords, coord_margin_xy,
         neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
         del dset
     # write offsets to csv
-    offset_dict_to_csv(neuron_offsets, fp=osp.join(out_dir, "offsets", "offsets.csv"))
+    offset_dict_to_csv(neuron_offsets, out_dir=osp.join(out_dir, "offsets"))
     return
 
 
