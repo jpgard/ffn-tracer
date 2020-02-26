@@ -1,20 +1,22 @@
 """
 Generate a dataset of neuron images from Mozak datasets.
 
+Creates a set of directories in out_dir for coords and tfrecords representing the data.
+
 usage:
 
 [2d data]
 
 python generate_mozak_data.py \
-    --dataset_ids 507727402 521693148 522442346 529751320 565040416 565298596 565636436 \
-        565724110 570369389 319215569 397462955 476667707 476912429 495358721 508767079 \
-        508821490 515548817 515843906 518298467 518358134 518784828 520260582 521693148 \
-        521702225 522442346 541830986 548268538 550168314 \
+    --dataset_ids 319215569 327671477 476912429 495358721 507727402 508821490 515548817 \
+    515843906 517797791 520260582 521693148 521702225 528890211 529751320 538835830 \
+    548268538 550168314 565040416 565298596 565636436 565724110 567856722 568079643 \
+    570369389 574690722 583986008 594645586 604897314 646048002 652405209 668585598 \
+    671663066 675132228 681189535 712206572 829777525 846611020 933545403 939682871 \
+    954441830 957076962 \
     --gs_dir data/gold_standard \
     --img_dir data/img \
-    --seed_csv data/seed_locations/seed_locations.csv \
-    --out_dir ./data \
-    --coord_margin_xy 179 \
+    --out_dir ./data/clean-02-2020 \
     --train_data_sampling proportional_by_dataset
 
 [3d data; load from DAP server when img_dir is not provided]
@@ -22,9 +24,7 @@ python generate_mozak_data.py \
     --data_dim 3 \
     --dataset_ids 476667707 \
     --gs_dir data/gold_standard \
-    --seed_csv data/seed_locations/seed_locations.csv \
     --out_dir ./data \
-    --coord_margin_xy 179 \
     --train_data_sampling proportional_by_dataset
 
 """
@@ -35,17 +35,15 @@ from fftracer.datasets import SeedDataset, offset_dict_to_csv
 import os.path as osp
 
 
-def main(dataset_ids, gs_dir, seed_csv, out_dir, num_training_coords, coord_margin_xy,
+def main(dataset_ids, gs_dir, out_dir, num_training_coords, coord_margin_xy,
          train_data_sampling, coord_sampling_prob, data_dim, img_dir=None):
-    seeds = SeedDataset(seed_csv)
     neuron_datasets = dict()
     neuron_offsets = dict()
     for dataset_id in dataset_ids:
-        seed = seeds.get_seed_loc(dataset_id)
         if data_dim == 2:
-            dset = MozakDataset2d(dataset_id, seed)
+            dset = MozakDataset2d(dataset_id)
         elif data_dim == 3:
-            dset = MozakDataset3d(dataset_id, seed)
+            dset = MozakDataset3d(dataset_id)
         dset.load_data(gs_dir, img_dir)
         neuron_datasets[dataset_id] = dset
         # write data to a tfrecord file
@@ -70,8 +68,6 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--img_dir", help="directory containing raw input images",
                         required=False)
-    parser.add_argument("--seed_csv", help="csv file containing seed locations",
-                        required=True)
     parser.add_argument("--num_training_coords",
                         help="number of training coordinates to generate",
                         default=5000,
@@ -84,9 +80,14 @@ if __name__ == "__main__":
                              " proportional_by_dataset sampling strategy")
     parser.add_argument("--coord_margin_xy",
                         type=int,
+                        default=179,
                         help="sampled coordinates must be at least this far from image "
                              "boundaries; use (fov_size_xy - 1 // 2) + delta_xy * "
-                             "fov_moves")
+                             "fov_moves. Note that generally data are not close to "
+                             "image boundaries in xy dimension, so this does not "
+                             "affect 2D tracing data much and setting to a value "
+                             "matching the largest candidate FOV size will result in "
+                             "only minimal data loss, if any.")
     parser.add_argument("--train_data_sampling",
                         help="method to use for sampling training data; currently "
                              "'uniform_by_dataset', 'proportional_by_dataset' and "

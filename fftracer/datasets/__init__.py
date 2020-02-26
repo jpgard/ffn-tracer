@@ -26,13 +26,12 @@ def offset_dict_to_csv(offset_dict, fp):
 class PairedDataset2d(ABC):
     """A dataset consisting of an image (x) and pixel-wise labels (y)."""
 
-    def __init__(self, dataset_id: str, seed: Seed):
+    def __init__(self, dataset_id: str):
         self.dataset_id = dataset_id
         # the input grayscale image; an array with shape (height, width) and dtype uint8
         self.x = None
         # the pixel-wise labels for the image; an array with shape (height, width)
         self.y = None
-        self.seed = seed
         # pom_pad is the value by which zero labels are increased/1 labels are decreased
         self.pom_pad = 0.05
 
