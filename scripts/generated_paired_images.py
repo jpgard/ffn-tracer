@@ -47,7 +47,7 @@ def main(argv):
         gs = MozakGoldStandardTrace(dataset_id, FLAGS.swc_dir)
         gs.fetch_trace()
         y = nodes_and_edges_to_trace(gs.nodes, gs.edges, imshape=x.shape,
-                                     trace_value=1,
+                                     trace_value=255,
                                      pad_value=0)
         assert y.shape == x.shape, "shape mismatch between x and y arrays"
         xy_paired_array = np.concatenate([x,y], axis=1)
