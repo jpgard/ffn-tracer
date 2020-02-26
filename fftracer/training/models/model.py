@@ -371,6 +371,11 @@ class FFNTracerModel(FFNModel):
 
     def set_up_ot_loss(self, logits):
         """Set up the optimal transport loss."""
+        # the output of the optimal transport solver is of type float64, and its
+        # precision can be important since the values may be small, so we convert
+        # logits to match this type
+        probs = tf.sigmoid(logits)
+        probs = tf.cast(probs, tf.float64)
 
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix, D=self.D)
 
@@ -380,11 +385,13 @@ class FFNTracerModel(FFNModel):
         # TODO(jpgard): can we use tf.map_fn here instead?
         # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
 
-        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [logits, self.labels],
+        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [probs, self.labels],
                         [tf.float64], name='GetOTMatrix')
-        pixel_loss_batch = tf.py_func(compute_pixel_loss_batch, [Pi, self.D],
+        delta_y_hat = tf.py_func(compute_pixel_loss_batch, [Pi, self.D],
                                       [tf.float64], name='GetOTPixelLoss')
-        self.loss = tf.reduce_mean(pixel_loss_batch)
+        delta_y_hat = tf.stop_gradient(delta_y_hat)
+        pixel_loss = tf.multiply(probs, delta_y_hat)
+        self.loss = tf.reduce_mean(pixel_loss)
         self.loss = tf.verify_tensor_all_finite(
             self.loss, 'Invalid loss detected'
         )
