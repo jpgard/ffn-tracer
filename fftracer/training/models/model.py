@@ -5,11 +5,15 @@ import logging
 import numpy as np
 import math
 from typing import Optional
+from functools import partial
 
 from scipy.ndimage import distance_transform_edt as distance
+from scipy.special import expit
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
+from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix_batch,\
+    compute_pixel_loss_batch
 from fftracer.training.models.adversarial.dcgan import DCGAN
 from fftracer.training.models.adversarial.patchgan import PatchGAN
 import tensorflow as tf
@@ -113,6 +117,11 @@ class FFNTracerModel(FFNModel):
         self.set_uniform_io_size(fov_size)
 
         self._adv_args = adv_args
+
+        self.D = None
+        if self.loss_name == "ot":
+            # initialize the distance matrix
+            self.D = make_distance_matrix(fov_size[0])
 
     @property
     def adv_args(self):
@@ -367,6 +376,46 @@ class FFNTracerModel(FFNModel):
         self.discriminator.discriminator_loss(real_output=pred_true,
                                               fake_output=pred_fake)
 
+    def set_up_ot_loss(self, logits):
+        """Set up the optimal transport loss."""
+        # Logits has shape [batch_size, z, y, x, num_channels]
+        assert logits.get_shape().as_list()[1] == 1, \
+            "OT loss currently only implemented for 2D, expecting Z dimension of 1."
+        logits = drop_axis(logits, axis=1, name="DropLogitsZ")
+        y_true = drop_axis(self.labels, axis=1, name="DropLabelsZ")
+        # the output of the optimal transport solver is of type float64, and its
+        # precision can be important since the values may be small, so we convert
+        # logits to match this type
+        y_hat_probs = tf.sigmoid(logits)
+        y_hat_probs = tf.cast(y_hat_probs, tf.float64)
+
+        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
+        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
+
+        # TODO(jpgard): can we use tf.map_fn here instead?
+        # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
+
+        # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
+        # dimension.
+
+        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
+                        [tf.float64], name='GetOTMatrix')
+
+        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, Pi,
+                                 tf.float64, name='GetOTPixelLoss')
+        delta_y_hat = tf.stop_gradient(delta_y_hat)
+        # drop the channels dim of y_hat_probs to compute loss
+        # TODO(jpgard): find a more elegant way to handle the shapes of tensors. Perhaps
+        #  squeeze() inputs above; this will drop z-axis and channels dim; then,
+        #  adjust the ot functions to just take the input matrices without channels dim.
+        y_hat_probs = tf.squeeze(y_hat_probs)
+        pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
+        self.loss = tf.reduce_mean(pixel_loss)
+        self.loss = tf.verify_tensor_all_finite(
+            self.loss, 'Invalid loss detected'
+        )
+        tf.summary.scalar('ot_loss', self.loss)
+
     def set_up_patchgan_loss(self, logits):
         self.initialize_adversary(logits, type="patchgan")
 
@@ -427,6 +476,8 @@ class FFNTracerModel(FFNModel):
             self.set_up_adversarial_loss(logit_seed)
         elif self.loss_name == "adversarial_sce":
             self.set_up_adversarial_plus_ce_loss(logit_seed)
+        elif self.loss_name == "ot":
+            self.set_up_ot_loss(logit_seed)
         elif self.loss_name == "patchgan":
             self.set_up_patchgan_loss(logit_seed)
         elif self.loss_name == "patchgan_sce":
