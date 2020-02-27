@@ -47,8 +47,8 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     :return: Pi, the optimal transport matrix, of shape [d**2, d**2]. The (i,j) entry
     in Pi represents the cost of moving pixel i in y_hat to pixel j in y.
     """
-    assert np.all(y >= 0), "expect nonnegative labels; perhaps handle logits here."
-    assert np.all(y_hat >= 0), "expect nonnegative preds; perhaps handle logits here."
+    assert np.all(y >= 0), "expect nonnegative labels; contains {}".format(y.min())
+    assert np.all(y_hat >= 0), "expect nonnegative preds; contains {}".format(y_hat.min())
     np.testing.assert_array_equal(y.shape[0], y.shape[1])  # check images are square
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
