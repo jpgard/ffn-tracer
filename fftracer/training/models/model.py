@@ -381,9 +381,6 @@ class FFNTracerModel(FFNModel):
         # logits to match this type
         y_hat_probs = tf.sigmoid(logits)
         y_hat_probs = tf.cast(y_hat_probs, tf.float64)
-        # It is possible that y_hat_probs can become <0 during conversion; if so,
-        # coerce those entries to zero.
-        y_hat_probs = tf.math.maximum(0, y_hat_probs)
 
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
         _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
