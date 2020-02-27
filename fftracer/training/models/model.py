@@ -13,7 +13,7 @@ from scipy.special import expit
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
 from fftracer.training.models.dcgan import DCGAN
-from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix,\
+from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix_batch,\
     compute_pixel_loss_batch
 import tensorflow as tf
 from fftracer.utils.tensor_ops import drop_axis, add_axis, clip_gradients
@@ -371,26 +371,41 @@ class FFNTracerModel(FFNModel):
 
     def set_up_ot_loss(self, logits):
         """Set up the optimal transport loss."""
+        # Logits has shape [batch_size, z, y, x, num_channels]
+        assert logits.get_shape().as_list()[1] == 1, \
+            "OT loss currently only implemented for 2D, expecting Z dimension of 1."
+        logits = drop_axis(logits, axis=1, name="DropLogitsZ")
+        y_true = drop_axis(self.labels, axis=1, name="DropLabelsZ")
         # the output of the optimal transport solver is of type float64, and its
         # precision can be important since the values may be small, so we convert
         # logits to match this type
-        probs = tf.sigmoid(logits)
-        probs = tf.cast(probs, tf.float64)
+        y_hat_probs = tf.sigmoid(logits)
+        y_hat_probs = tf.cast(y_hat_probs, tf.float64)
+        # It is possible that y_hat_probs can become <0 during conversion; if so,
+        # coerce those entries to zero.
+        y_hat_probs = tf.math.maximum(0, y_hat_probs)
 
-        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix, D=self.D)
-
-        # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
-        # dimension.
+        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
+        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
 
         # TODO(jpgard): can we use tf.map_fn here instead?
         # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
 
-        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [probs, self.labels],
+        # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
+        # dimension.
+
+        Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
                         [tf.float64], name='GetOTMatrix')
-        delta_y_hat = tf.py_func(compute_pixel_loss_batch, [Pi, self.D],
-                                      [tf.float64], name='GetOTPixelLoss')
+
+        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, Pi,
+                                 tf.float64, name='GetOTPixelLoss')
         delta_y_hat = tf.stop_gradient(delta_y_hat)
-        pixel_loss = tf.multiply(probs, delta_y_hat)
+        # drop the channels dim of y_hat_probs to compute loss
+        # TODO(jpgard): find a more elegant way to handle the shapes of tensors. Perhaps
+        #  squeeze() inputs above; this will drop z-axis and channels dim; then,
+        #  adjust the ot functions to just take the input matrices without channels dim.
+        y_hat_probs = tf.squeeze(y_hat_probs)
+        pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
         self.loss = tf.reduce_mean(pixel_loss)
         self.loss = tf.verify_tensor_all_finite(
             self.loss, 'Invalid loss detected'

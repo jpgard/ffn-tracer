@@ -44,8 +44,8 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     :param y_hat: the predicted image.
     :param D: the distance matrix; generate via make_distance_matrix(y.shape[0])
     :param y_hat_as_logits: if True, y_hat is provided as logits.
-    :return: Pi, the optimal transport matrix. The (i,j) entry in Pi represents the
-    cost of moving pixel i in y_hat to pixel j in y.
+    :return: Pi, the optimal transport matrix, of shape [d**2, d**2]. The (i,j) entry
+    in Pi represents the cost of moving pixel i in y_hat to pixel j in y.
     """
     assert np.all(y >= 0), "expect nonnegative labels; perhaps handle logits here."
     assert np.all(y_hat >= 0), "expect nonnegative preds; perhaps handle logits here."
@@ -60,13 +60,19 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
 
 
 def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
-    """Apply compute_ot_loss_matrix() along batch_dim to get Pi for each image.
+    """
+    Apply compute_ot_loss_matrix() along batch_dim to get Pi for each image.
 
-    Returns np.ndarray of shape [batch_dim, d] where d is the
+    :param y: array of shape [batch_size, d, d, 1] representing ground truth.
+    :param y_hat: array of shape [batch_size, d, d, 1] representing predictions.
+    :param D: distance matrix; this represents the cost of pixel-to-pixel transport.
+    :return: np.ndarray of shape [batch_dim, d**2, d**2] where d is the
     total number of pixels in an image. Assumes first axis of y and y_hat is batch_dim.
     """
     pi_batch = list()
     assert y.shape[-1] == 1, "only one-channel images currently supported"
+    assert y.shape == y_hat.shape, "y shape is {} but y_hat shape is {}".format(
+        y.shape, y_hat.shape)
     # TODO(jpgard): figure out a faster method than iterating over array.
     for i in np.arange(y.shape[0]):
         y_i = y[i, :, :, 0]
@@ -79,6 +85,7 @@ def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray
 
 
 def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
+    assert Pi.shape == D.shape, "Pi and D should have same shape"
     PI_D = np.multiply(Pi, D)  # elementwise product of Pi and D.
     source_loss = - PI_D.sum(axis=1)  # sum over j, the target pixels
     target_loss = PI_D.sum(axis=0)
@@ -89,14 +96,17 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
 
 
 def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray):
-    """Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
+    """
+    Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
 
-    Returns np.ndarray of shape [batch_dim, d, d] where where d is the length of one
+    :param Pi: array of shape [batch_size, d**2, d**2]
+    :param D: array of shape [d**2, d**2]
+    :return: np.ndarray of shape [batch_dim, d, d] where where d is the length of one
     side of the square input image. Assumes first axis of Pi is batch_dim.
     """
     image_pixel_loss = list()
     for i in np.arange(Pi.shape[0]):
-        Pi_i = Pi[i, :, :]
+        Pi_i = Pi[i, ...]
         pixel_loss_i = compute_pixel_loss(Pi_i, D)
         image_pixel_loss.append(pixel_loss_i)
     pixel_loss_batch = np.array(image_pixel_loss)
