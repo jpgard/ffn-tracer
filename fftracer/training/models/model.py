@@ -383,11 +383,18 @@ class FFNTracerModel(FFNModel):
             "OT loss currently only implemented for 2D, expecting Z dimension of 1."
         logits = drop_axis(logits, axis=1, name="DropLogitsZ")
         y_true = drop_axis(self.labels, axis=1, name="DropLabelsZ")
-        # the output of the optimal transport solver is of type float64, and its
-        # precision can be important since the values may be small, so we convert
-        # logits to match this type
         y_hat_probs = tf.sigmoid(logits)
+
+        # The output of the optimal transport solver is of type float64, and its
+        # precision can be important since the values may be small, so we convert
+        # y_hat_probs to match this type
         y_hat_probs = tf.cast(y_hat_probs, tf.float64)
+
+        # compute the alpha
+        A = tf.reduce_sum(y_true)
+        A = tf.cast(A, tf.float64)
+        B = tf.reduce_sum(y_hat_probs)
+        alpha = tf.math.minimum(B / (2.0 * A), tf.cast(1.0, tf.float64))
 
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
         _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
@@ -399,15 +406,12 @@ class FFNTracerModel(FFNModel):
         # dimension.
 
         Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
-                        [tf.float64], name='GetOTMatrix')
+                        tf.float64, name='GetOTMatrix')
 
-        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, Pi,
+        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, [Pi, alpha],
                                  tf.float64, name='GetOTPixelLoss')
         delta_y_hat = tf.stop_gradient(delta_y_hat)
         # drop the channels dim of y_hat_probs to compute loss
-        # TODO(jpgard): find a more elegant way to handle the shapes of tensors. Perhaps
-        #  squeeze() inputs above; this will drop z-axis and channels dim; then,
-        #  adjust the ot functions to just take the input matrices without channels dim.
         y_hat_probs = tf.squeeze(y_hat_probs)
         pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
         self.loss = tf.reduce_mean(pixel_loss)
