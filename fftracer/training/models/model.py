@@ -405,9 +405,7 @@ class FFNTracerModel(FFNModel):
                                  tf.float64, name='GetOTPixelLoss')
         delta_y_hat = tf.stop_gradient(delta_y_hat)
         # drop the channels dim of y_hat_probs to compute loss
-        # TODO(jpgard): find a more elegant way to handle the shapes of tensors. Perhaps
-        #  squeeze() inputs above; this will drop z-axis and channels dim; then,
-        #  adjust the ot functions to just take the input matrices without channels dim.
+
         y_hat_probs = tf.squeeze(y_hat_probs)
         pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
         self.loss = tf.reduce_mean(pixel_loss)
