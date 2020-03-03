@@ -397,9 +397,6 @@ class FFNTracerModel(FFNModel):
         alpha = tf.py_func(compute_alpha_batch, [y_true, y_hat_probs], tf.float64,
                            name='ComputeAlpha')
 
-        # TODO(jpgard): can we use tf.map_fn here instead?
-        # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
-
         # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
         # dimension.
 
