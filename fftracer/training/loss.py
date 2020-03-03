@@ -119,11 +119,13 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
     return pixel_loss
 
 
-def compute_pixel_loss_batch(Pi: np.ndarray, alpha: float, D: np.ndarray):
+def compute_pixel_loss_batch(Pi: np.ndarray, alpha: np.ndarray, D: np.ndarray):
     """
     Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
 
     :param Pi: array of shape [batch_size, d**2, d**2]
+    :param alpha: array of shape [batch_size,] containing the alpha constant for each
+    element in the batch.
     :param D: array of shape [d**2, d**2]
     :return: np.ndarray of shape [batch_dim, d, d] where where d is the length of one
     side of the square input image. Assumes first axis of Pi is batch_dim.
@@ -137,7 +139,25 @@ def compute_pixel_loss_batch(Pi: np.ndarray, alpha: float, D: np.ndarray):
     image_pixel_loss = list()
     for i in np.arange(Pi.shape[0]):
         Pi_i = Pi[i, ...]
-        pixel_loss_i = compute_pixel_loss(Pi_i, D, alpha)
+        pixel_loss_i = compute_pixel_loss(Pi_i, D, alpha[i])
         image_pixel_loss.append(pixel_loss_i)
     pixel_loss_batch = np.array(image_pixel_loss)
     return pixel_loss_batch
+
+
+def compute_alpha(y: np.ndarray, y_hat: np.ndarray):
+    A = y.astype(np.float64).sum()
+    B = y_hat.astype(np.float64).sum()
+    alpha = tf.math.minimum(B / (2.0 * A), 1.0)
+    return alpha
+
+
+def compute_alpha_batch(y, y_hat):
+    batch_size = y.shape[0]
+    alphas = np.empty(batch_size)
+    for i in np.arange(y.shape[0]):
+        y_i = y[i, ...]
+        y_hat_i = y_hat[i, ...]
+        alpha_i = compute_alpha(y_i, y_hat_i)
+        alphas[i] = alpha_i
+    return alphas
