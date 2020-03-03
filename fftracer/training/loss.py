@@ -65,8 +65,6 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
     y_hat_hist = normalize_to_histogram(y_hat)
-    # TODO(jpgard): check for GPU implementation here; if a GPU is visible, use that
-    #  instead.
     PI = ot.emd(y_hat_hist, y_hist, D)
     return PI
 
