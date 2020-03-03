@@ -406,7 +406,7 @@ class FFNTracerModel(FFNModel):
         # dimension.
 
         Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
-                        [tf.float64], name='GetOTMatrix')
+                        tf.float64, name='GetOTMatrix')
 
         delta_y_hat = tf.py_func(_compute_pixel_loss_batch, [Pi, alpha],
                                  tf.float64, name='GetOTPixelLoss')

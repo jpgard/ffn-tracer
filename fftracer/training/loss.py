@@ -114,6 +114,12 @@ def compute_pixel_loss_batch(Pi: np.ndarray, alpha: float, D: np.ndarray):
     :return: np.ndarray of shape [batch_dim, d, d] where where d is the length of one
     side of the square input image. Assumes first axis of Pi is batch_dim.
     """
+    assert len(Pi.shape) == 3, \
+        "Pi should have dimension [batch_size, d**2, d**2, received {}".format(Pi.shape)
+    assert Pi.shape[-2:] == D.shape[-2:], \
+        "Pi and D must match in final two dimensions; got shapes {} {}".format(
+            Pi.shape[-2:], D.shape[-2:]
+        )
     image_pixel_loss = list()
     for i in np.arange(Pi.shape[0]):
         Pi_i = Pi[i, ...]
