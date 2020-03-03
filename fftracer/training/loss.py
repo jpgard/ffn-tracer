@@ -85,7 +85,6 @@ def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray
     assert y.shape[-1] == 1, "only one-channel images currently supported"
     assert y.shape == y_hat.shape, "y shape is {} but y_hat shape is {}".format(
         y.shape, y_hat.shape)
-    # TODO(jpgard): figure out a faster method than iterating over array.
     for i in np.arange(y.shape[0]):
         y_i = y[i, :, :, 0]
         y_hat_i = y_hat[i, :, :, 0]
