@@ -477,6 +477,8 @@ class FFNTracerModel(FFNModel):
         elif self.loss_name == "adversarial_sce":
             self.set_up_adversarial_plus_ce_loss(logit_seed)
         elif self.loss_name == "ot":
+            # TODO(jpgard): ot loss dominates all of the available GPU memory; need a
+            #  way to constrain it when run on GPU cluster.
             self.set_up_ot_loss(logit_seed)
         elif self.loss_name == "patchgan":
             self.set_up_patchgan_loss(logit_seed)
