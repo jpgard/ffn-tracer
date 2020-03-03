@@ -80,7 +80,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 logging.basicConfig(level=logging.DEBUG)
 
 def copy_file_to_tempdir(fp, dirname):
-    """Copy the file at fp to dirname, keeping the same base name.
+    """Copy the file at out_dir to dirname, keeping the same base name.
     Returns the path to the new file, as string.
     """
     fp, dset_name = fp.split(":")
