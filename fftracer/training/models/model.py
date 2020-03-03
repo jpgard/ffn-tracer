@@ -383,14 +383,22 @@ class FFNTracerModel(FFNModel):
             "OT loss currently only implemented for 2D, expecting Z dimension of 1."
         logits = drop_axis(logits, axis=1, name="DropLogitsZ")
         y_true = drop_axis(self.labels, axis=1, name="DropLabelsZ")
-        # the output of the optimal transport solver is of type float64, and its
-        # precision can be important since the values may be small, so we convert
-        # logits to match this type
         y_hat_probs = tf.sigmoid(logits)
+
+        # The output of the optimal transport solver is of type float64, and its
+        # precision can be important since the values may be small, so we convert
+        # y_hat_probs to match this type
         y_hat_probs = tf.cast(y_hat_probs, tf.float64)
 
+        # compute the alpha
+        A = tf.reduce_sum(y_true)
+        B = tf.reduce_sum(y_hat_probs)
+        alpha = tf.math.minimum(B / (2 * A), 1)
+        alpha = tf.stop_gradient(alpha)
+
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
-        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
+        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D,
+                                            alpha=alpha)
 
         # TODO(jpgard): can we use tf.map_fn here instead?
         # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
@@ -405,7 +413,6 @@ class FFNTracerModel(FFNModel):
                                  tf.float64, name='GetOTPixelLoss')
         delta_y_hat = tf.stop_gradient(delta_y_hat)
         # drop the channels dim of y_hat_probs to compute loss
-
         y_hat_probs = tf.squeeze(y_hat_probs)
         pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
         self.loss = tf.reduce_mean(pixel_loss)

@@ -84,18 +84,27 @@ def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray
     return pi_batch
 
 
-def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray):
+def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
+    """
+
+    :param Pi: the optimal transport matrix; shape [dim_source, dim_target]
+    :param D: the distance matrix, shape [dim_source, dim_target]
+    :param alpha: the weight coefficient for source loss; target loss will be weighted
+    by (1 - alpha)
+    :return:
+    """
+    assert 0 <= alpha >= 1
     assert Pi.shape == D.shape, "Pi and D should have same shape"
     PI_D = np.multiply(Pi, D)  # elementwise product of Pi and D.
     source_loss = - PI_D.sum(axis=1)  # sum over j, the target pixels
     target_loss = PI_D.sum(axis=0)
-    pixel_loss = source_loss + target_loss
+    pixel_loss = alpha * source_loss + (1 - alpha) * target_loss
     d = np.sqrt(Pi.shape[0]).astype(int)  # the original square image dimension
     pixel_loss = pixel_loss.reshape((d, d))
     return pixel_loss
 
 
-def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray):
+def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
     """
     Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
 
@@ -107,7 +116,7 @@ def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray):
     image_pixel_loss = list()
     for i in np.arange(Pi.shape[0]):
         Pi_i = Pi[i, ...]
-        pixel_loss_i = compute_pixel_loss(Pi_i, D)
+        pixel_loss_i = compute_pixel_loss(Pi_i, D, alpha)
         image_pixel_loss.append(pixel_loss_i)
     pixel_loss_batch = np.array(image_pixel_loss)
     return pixel_loss_batch
