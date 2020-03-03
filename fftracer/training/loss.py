@@ -136,6 +136,9 @@ def compute_pixel_loss_batch(Pi: np.ndarray, alpha: np.ndarray, D: np.ndarray):
         "Pi and D must match in final two dimensions; got shapes {} {}".format(
             Pi.shape[-2:], D.shape[-2:]
         )
+    assert Pi.shape[0] == alpha.shape[0], \
+    "batch_dim of Pi and alpha do not match; batch_dim " \
+    "shapes are {} {}".format(Pi.shape[0], alpha.shape[0])
     image_pixel_loss = list()
     for i in np.arange(Pi.shape[0]):
         Pi_i = Pi[i, ...]
@@ -148,7 +151,7 @@ def compute_pixel_loss_batch(Pi: np.ndarray, alpha: np.ndarray, D: np.ndarray):
 def compute_alpha(y: np.ndarray, y_hat: np.ndarray):
     A = y.astype(np.float64).sum()
     B = y_hat.astype(np.float64).sum()
-    alpha = tf.math.minimum(B / (2.0 * A), 1.0)
+    alpha = min(B / (2.0 * A), 1.0)
     return alpha
 
 

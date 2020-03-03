@@ -13,7 +13,7 @@ from scipy.special import expit
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
 from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix_batch,\
-    compute_pixel_loss_batch, compute_alpha
+    compute_pixel_loss_batch, compute_alpha_batch
 from fftracer.training.models.adversarial.dcgan import DCGAN
 from fftracer.training.models.adversarial.patchgan import PatchGAN
 import tensorflow as tf
@@ -394,7 +394,7 @@ class FFNTracerModel(FFNModel):
         _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
 
         # compute the alpha
-        alpha = tf.py_func(compute_alpha, [y_true, y_hat_probs], tf.float64,
+        alpha = tf.py_func(compute_alpha_batch, [y_true, y_hat_probs], tf.float64,
                            name='ComputeAlpha')
 
         # TODO(jpgard): can we use tf.map_fn here instead?
