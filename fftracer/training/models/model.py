@@ -393,7 +393,7 @@ class FFNTracerModel(FFNModel):
         # compute the alpha
         A = tf.reduce_sum(y_true)
         B = tf.reduce_sum(y_hat_probs)
-        alpha = tf.math.minimum(B / (2 * A), 1)
+        alpha = tf.math.minimum(B / (2 * A), tf.float64(1.0))
         alpha = tf.stop_gradient(alpha)
 
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
