@@ -4,6 +4,8 @@ from scipy.spatial.distance import pdist, squareform
 from scipy.special import expit
 import ot
 
+from fftracer.utils.testing import assert_array_finite, assert_array_nonnegative
+
 
 def make_distance_matrix(d):
     """Generate a dense distance matrix of shape (d**2, d**2), where the (i,j)th entry
@@ -24,15 +26,22 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     Flatten im, and normalize so its values sum to 1.
 
     :param im: the image to normalize.
-    :param dout: the dtype to return. Note that pot prefers np.float64 for numerical
+    :param dout: the dtype to return. Note that POT prefers np.float64 for numerical
     precision.
+    :smoothing_constant: small positive float that is added to the sum to ensure it is
+    nonzero.
     :return: the flattened, normalized histogram array
     """
-    hist = im.flatten().astype(dout)
-    hist = hist / hist.sum()
-    np.testing.assert_almost_equal(hist.sum(), 1.0, err_msg=
-    "sum of vector after normalization is {}; expected sum of 1.0".format(hist.sum())
-                                   )
+    assert_array_finite(im)
+    x = im.flatten().astype(dout)
+    x_sum = x.sum()
+    if x_sum != 0.:
+        hist = x / x_sum
+    else:  # if all pixels are zero, hist should be a uniform distribution over pixels.
+        hist = np.full_like(x, fill_value=float(1) / np.prod(x.shape))
+    np.testing.assert_almost_equal(
+        hist.sum(), 1.0, err_msg=
+        "sum of vector after normalization is %8.9f; expected sum of 1.0" % hist.sum())
     return hist
 
 
@@ -47,8 +56,11 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     :return: Pi, the optimal transport matrix, of shape [d**2, d**2]. The (i,j) entry
     in Pi represents the cost of moving pixel i in y_hat to pixel j in y.
     """
-    assert np.all(y >= 0), "expect nonnegative labels; contains {}".format(y.min())
-    assert np.all(y_hat >= 0), "expect nonnegative preds; contains {}".format(y_hat.min())
+    assert_array_finite(y)
+    assert_array_finite(y_hat)
+    assert_array_nonnegative(y)
+    assert_array_nonnegative(y_hat)
+
     np.testing.assert_array_equal(y.shape[0], y.shape[1])  # check images are square
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
@@ -69,6 +81,8 @@ def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray
     :return: np.ndarray of shape [batch_dim, d**2, d**2] where d is the
     total number of pixels in an image. Assumes first axis of y and y_hat is batch_dim.
     """
+    assert_array_finite(y)
+    assert_array_finite(y_hat)
     pi_batch = list()
     assert y.shape[-1] == 1, "only one-channel images currently supported"
     assert y.shape == y_hat.shape, "y shape is {} but y_hat shape is {}".format(
