@@ -94,7 +94,8 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
     :return:
     """
     assert 0 <= alpha <= 1, "alpha must be in range [0,1]; you passed {}".format(alpha)
-    assert Pi.shape == D.shape, "Pi and D should have same shape"
+    assert Pi.shape == D.shape, \
+        "Pi and D should have same shape; passed shapes {} {}".format(Pi.shape, D.shape)
     PI_D = np.multiply(Pi, D)  # elementwise product of Pi and D.
     source_loss = - PI_D.sum(axis=1)  # sum over j, the target pixels
     target_loss = PI_D.sum(axis=0)
