@@ -93,7 +93,7 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
     by (1 - alpha)
     :return:
     """
-    assert 0 <= alpha >= 1
+    assert 0 <= alpha <= 1, "alpha must be in range [0,1]; you passed {}".format(alpha)
     assert Pi.shape == D.shape, "Pi and D should have same shape"
     PI_D = np.multiply(Pi, D)  # elementwise product of Pi and D.
     source_loss = - PI_D.sum(axis=1)  # sum over j, the target pixels
@@ -104,7 +104,7 @@ def compute_pixel_loss(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
     return pixel_loss
 
 
-def compute_pixel_loss_batch(Pi: np.ndarray, D: np.ndarray, alpha=0.5):
+def compute_pixel_loss_batch(Pi: np.ndarray, alpha: float, D: np.ndarray):
     """
     Apply compute_pixel_loss() along batch_dim to get loss for each pixel.
 
