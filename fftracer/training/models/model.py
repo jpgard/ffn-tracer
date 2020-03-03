@@ -392,13 +392,12 @@ class FFNTracerModel(FFNModel):
 
         # compute the alpha
         A = tf.reduce_sum(y_true)
+        A = tf.cast(A, tf.float64)
         B = tf.reduce_sum(y_hat_probs)
-        alpha = tf.math.minimum(B / (2 * A), tf.float64(1.0))
-        alpha = tf.stop_gradient(alpha)
+        alpha = tf.math.minimum(B / (2.0 * A), tf.cast(1.0, tf.float64))
 
         _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
-        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D,
-                                            alpha=alpha)
+        _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
 
         # TODO(jpgard): can we use tf.map_fn here instead?
         # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/map_fn
@@ -409,7 +408,7 @@ class FFNTracerModel(FFNModel):
         Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
                         [tf.float64], name='GetOTMatrix')
 
-        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, Pi,
+        delta_y_hat = tf.py_func(_compute_pixel_loss_batch, [Pi, alpha],
                                  tf.float64, name='GetOTPixelLoss')
         delta_y_hat = tf.stop_gradient(delta_y_hat)
         # drop the channels dim of y_hat_probs to compute loss
