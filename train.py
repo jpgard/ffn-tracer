@@ -5,15 +5,17 @@ This script mostly follows the logic of the original ffn train.py script, with c
 data loading for mozak/allen institute imaging.
 
 usage:
+export OPTIMIZER="adam";LOSS="ot";FOV=49;SELF_ATTENTION_LAYER=7;L1LAMBDA=0.01
+
 python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
     --coordinate_dir ./data${DATA}/coords \
     --image_mean 78 --image_stddev 20 \
     --max_steps 10000000 \
-    --adv_update_every_iters 5 \
+    --adv_update_every_iters 100 \
     --optimizer $OPTIMIZER \
-    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"l1lambda\": 0.1, \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
-    --adv_args "{\"smooth_labels\": true, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001}" \
+    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"l1lambda\": $L1LAMBDA, \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
+    --adv_args "{\"smooth_labels\": true, \"noisy_label_stddev\": 0.05, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001, \"spectral_normalization\": true}" \
     --visible_gpus=0,1
 
 """
