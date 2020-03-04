@@ -396,9 +396,13 @@ class FFNTracerModel(FFNModel):
         # compute the alpha
         alpha = tf.py_func(compute_alpha_batch, [y_true, y_hat_probs], tf.float64,
                            name='ComputeAlpha')
+        alpha = tf.clip_by_value(alpha, 0.1, 0.9, "ClipAlpha")
+
+        tf.summary.histogram('ot_alpha', alpha)
 
         # Pi is a Tensor of shape [batch_size, d**2, d**2], where d is the square image
-        # dimension.
+        # dimension. The i,j^th entry of Pi represents the cost of
+        # moving a pixel i in y_hat --> pixel j in y.
 
         Pi = tf.py_func(_compute_ot_loss_matrix_batch, [y_true, y_hat_probs],
                         tf.float64, name='GetOTMatrix')
