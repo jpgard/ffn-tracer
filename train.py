@@ -6,7 +6,7 @@ data loading for mozak/allen institute imaging.
 
 usage:
 export OPTIMIZER="adam";LOSS="ot";FOV=49;SELF_ATTENTION_LAYER=7;L1LAMBDA=0.01
-export GPU_ID="0"
+export GPU_ID="3,4"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -31,21 +31,14 @@ import os
 import random
 import time
 
-# Before any other imports, set the GPU visibility.
-from fftracer.utils.flags import make_training_flags
 from absl import flags
-FLAGS = flags.FLAGS
-make_training_flags()
-
-
-import tensorflow as tf
-import numpy as np
 from absl import app
-from ffn.training import augmentation, mask
-from scipy.special import expit, logit
+import numpy as np
 import six
-# Necessary so that optimizer experiment_flags are defined.
-from ffn.training import optimizer
+from scipy.special import expit, logit
+import tensorflow as tf
+from ffn.training import augmentation, mask
+from ffn.training import optimizer  # Necessary so that optimizer flags are defined.
 
 from fftracer.training import input
 from fftracer.training import _get_offset_and_scale_map, _get_permutable_axes, \
@@ -54,8 +47,10 @@ from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training.evaluation import EvalTracker
 from fftracer.utils.debugging import write_patch_and_label_to_img
-from fftracer.utils.flags import uid_from_flags
+from fftracer.utils.flags import uid_from_flags, make_training_flags
 
+FLAGS = flags.FLAGS
+make_training_flags()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
