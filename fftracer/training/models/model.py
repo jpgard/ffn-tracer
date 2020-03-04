@@ -12,7 +12,7 @@ from scipy.special import expit
 
 from ffn.training.model import FFNModel
 from fftracer.training.self_attention.non_local import sn_non_local_block_sim
-from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix_batch,\
+from fftracer.training.loss import make_distance_matrix, compute_ot_loss_matrix_batch, \
     compute_pixel_loss_batch, compute_alpha_batch
 from fftracer.training.models.adversarial.dcgan import DCGAN
 from fftracer.training.models.adversarial.patchgan import PatchGAN
@@ -412,7 +412,7 @@ class FFNTracerModel(FFNModel):
         delta_y_hat = tf.stop_gradient(delta_y_hat)
         # drop the channels dim of y_hat_probs to compute loss
         y_hat_probs = tf.squeeze(y_hat_probs)
-        pixel_loss = tf.multiply(y_hat_probs, delta_y_hat)
+        pixel_loss = -tf.multiply(y_hat_probs, delta_y_hat)
         self.loss = tf.reduce_mean(pixel_loss)
         self.loss = tf.verify_tensor_all_finite(
             self.loss, 'Invalid loss detected'
