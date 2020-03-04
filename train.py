@@ -46,88 +46,11 @@ from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training.evaluation import EvalTracker
 from fftracer.utils.debugging import write_patch_and_label_to_img
-from fftracer.utils.flags import uid_from_flags
+from fftracer.utils.flags import uid_from_flags, make_training_flags
 
 FLAGS = flags.FLAGS
+make_training_flags()
 
-# fftracer-specific options
-flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of "
-                                          "labeled input data volumes")
-flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
-                                            "patch coordinates")
-flags.DEFINE_boolean("debug", False, "produces debugging output")
-flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
-                                          "comma-separation for lists of GPU IDs e.g. "
-                                          "'0,1,2' ")
-flags.DEFINE_list('permutable_axes', ['1', '2'],
-                  'List of integers equal to a subset of [0, 1, 2] specifying '
-                  'which of the [z, y, x] axes, respectively, may be permuted '
-                  'in order to augment the training data.')
-
-flags.DEFINE_list('reflectable_axes', ['0', '1', '2'],
-                  'List of integers equal to a subset of [0, 1, 2] specifying '
-                  'which of the [z, y, x] axes, respectively, may be reflected '
-                  'in order to augment the training data.')
-flags.DEFINE_integer('ffn_update_every_iters', None,
-                 'update the FFN every `n`th iteration; otherwise update the '
-                 'adversary/discriminator.')
-flags.DEFINE_integer('adv_update_every_iters', None,
-                 'update the adversary every `n`th iteration; otherwise update the FFN.')
-flags.DEFINE_string('adv_args', None,
-                    'JSON string with arguments to be passed to the '
-                    'adversary/discriminator constructor.')
-
-# flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
-
-# Training infra options (from ffn train.py).
-flags.DEFINE_string('train_base_dir', './training-logs',
-                    'Path where checkpoints and other data will be saved into a unique '
-                    'subdirectory based on experiment hyperparameters.')
-flags.DEFINE_string('master', '', 'Network address of the master.')
-flags.DEFINE_integer('batch_size', 4, 'Number of images in a batch.')
-flags.DEFINE_integer('task', 0, 'Task id of the replica running the training.')
-flags.DEFINE_integer('ps_tasks', 0, 'Number of tasks in the ps job.')
-flags.DEFINE_integer('max_steps', 10000, 'Number of steps to train for.')
-flags.DEFINE_integer('replica_step_delay', 300,
-                     'Require the model to reach step number '
-                     '<replica_step_delay> * '
-                     '<replica_id> before starting training on a given '
-                     'replica.')
-flags.DEFINE_integer('summary_rate_secs', 120,
-                     'How often to save summaries (in seconds).')
-
-# FFN training options (from ffn train.py).
-flags.DEFINE_string('model_args', None,
-                    'JSON string with arguments to be passed to the model '
-                    'constructor.')
-flags.DEFINE_float('seed_pad', 0.05,
-                   'Value to use for the unknown area of the seed.')
-flags.DEFINE_float('threshold', 0.9,
-                   'Value to be reached or exceeded at the new center of the '
-                   'field of view in order for the network to inspect it.')
-flags.DEFINE_enum('fov_policy', 'fixed', ['fixed', 'max_pred_moves'],
-                  'Policy to determine where to move the field of the '
-                  'network. "fixed" tries predefined offsets specified by '
-                  '"model.shifts". "max_pred_moves" moves to the voxel with '
-                  'maximum mask activation within a plane perpendicular to '
-                  'one of the 6 Cartesian directions, offset by +/- '
-                  'model.deltas from the current FOV position.')
-flags.DEFINE_integer('fov_moves', 1,
-                     'Number of FOV moves by "model.delta" voxels to execute '
-                     'in every dimension. Currently only works with the '
-                     '"max_pred_moves" policy.')
-flags.DEFINE_boolean('shuffle_moves', True,
-                     'Whether to randomize the order of the moves used by the '
-                     'network with the "fixed" policy.')
-flags.DEFINE_list('image_offset_scale_map', None,
-                  'Optional per-volume specification of mean and stddev. '
-                  'Every entry in the list is a colon-separated tuple of: '
-                  'volume_label, offset, scale.')
-flags.DEFINE_float('image_mean', None,
-                   'Mean image intensity to use for input normalization.')
-flags.DEFINE_float('image_stddev', None,
-                   'Image intensity standard deviation to use for input '
-                   'normalization.')
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
