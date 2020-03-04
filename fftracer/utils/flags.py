@@ -1,22 +1,24 @@
 """
-Utilities for working with abseil flags.
+Utilities for working with abseil experiment_flags.
 """
 import json
+import os
+
 from absl import flags
 
 
 def make_training_flags():
-    """Create the flags for training."""
+    """Create the experiment_flags for training."""
     # fftracer-specific options
     flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of "
                                               "labeled input data volumes")
     flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
                                                 "patch coordinates")
     flags.DEFINE_boolean("debug", False, "produces debugging output")
-    flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
-                                              "comma-separation for lists of GPU IDs "
-                                              "e.g. "
-                                              "'0,1,2' ")
+    # flags.DEFINE_string("visible_gpus", None, "optional list of GPUs to use; use "
+    #                                           "comma-separation for lists of GPU IDs "
+    #                                           "e.g. "
+    #                                           "'0,1,2' ")
     flags.DEFINE_list('permutable_axes', ['1', '2'],
                       'List of integers equal to a subset of [0, 1, 2] specifying '
                       'which of the [z, y, x] axes, respectively, may be permuted '
@@ -36,7 +38,7 @@ def make_training_flags():
                         'JSON string with arguments to be passed to the '
                         'adversary/discriminator constructor.')
 
-    # flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
+    # experiment_flags.DEFINE_list('fov_size', [1, 49, 49], '[z, y, x] size of training fov')
 
     # Training infra options (from ffn train.py).
     flags.DEFINE_string('train_base_dir', './training-logs',
@@ -88,6 +90,13 @@ def make_training_flags():
     flags.DEFINE_float('image_stddev', None,
                        'Image intensity standard deviation to use for input '
                        'normalization.')
+
+
+# def set_gpu_visibility_from_flags(experiment_flags):
+#     if experiment_flags.visible_gpus is not None:  # specify which GPU(s) to be used
+#         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+#         os.environ["CUDA_VISIBLE_DEVICES"] = experiment_flags.visible_gpus
+
 
 def uid_from_flags(flags):
     """Construct a uique string identifier for an experiment."""

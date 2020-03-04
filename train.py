@@ -6,6 +6,9 @@ data loading for mozak/allen institute imaging.
 
 usage:
 export OPTIMIZER="adam";LOSS="ot";FOV=49;SELF_ATTENTION_LAYER=7;L1LAMBDA=0.01
+export GPU_ID="0"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 python train.py \
     --tfrecord_dir ./data${DATA}/tfrecords \
@@ -16,7 +19,6 @@ python train.py \
     --optimizer $OPTIMIZER \
     --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"l1lambda\": $L1LAMBDA, \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
     --adv_args "{\"smooth_labels\": true, \"noisy_label_stddev\": 0.05, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001, \"spectral_normalization\": true}" \
-    --visible_gpus=0,1
 
 """
 
@@ -29,14 +31,20 @@ import os
 import random
 import time
 
+# Before any other imports, set the GPU visibility.
+from fftracer.utils.flags import make_training_flags
+from absl import flags
+FLAGS = flags.FLAGS
+make_training_flags()
+
+
 import tensorflow as tf
 import numpy as np
-from absl import flags
 from absl import app
 from ffn.training import augmentation, mask
 from scipy.special import expit, logit
 import six
-# Necessary so that optimizer flags are defined.
+# Necessary so that optimizer experiment_flags are defined.
 from ffn.training import optimizer
 
 from fftracer.training import input
@@ -46,10 +54,7 @@ from fftracer.training.models.model import FFNTracerModel
 from fftracer.training.input import offset_and_scale_patches
 from fftracer.training.evaluation import EvalTracker
 from fftracer.utils.debugging import write_patch_and_label_to_img
-from fftracer.utils.flags import uid_from_flags, make_training_flags
-
-FLAGS = flags.FLAGS
-make_training_flags()
+from fftracer.utils.flags import uid_from_flags
 
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
@@ -452,7 +457,7 @@ def main(argv):
                         allow_soft_placement=True,
                         gpu_options=tf.GPUOptions(
                             allow_growth=True,
-                            visible_device_list=FLAGS.visible_gpus
+                            # visible_device_list=FLAGS.visible_gpus
                         )
                     ),
                     checkpoint_dir=train_dir,
