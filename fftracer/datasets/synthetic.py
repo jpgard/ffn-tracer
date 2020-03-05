@@ -1,12 +1,12 @@
 import numpy as np
-from fftracer.datasets import PairedDataset2d, Seed
+from fftracer.datasets import PairedDataset2d
 
 
 class SyneticDataset2D(PairedDataset2d):
     """A simple synthetic dataset for testing."""
 
-    def __init__(self, dataset_id="synthetic", seed=Seed(0, 0, 0)):
-        super(SyneticDataset2D, self).__init__(dataset_id, seed)
+    def __init__(self, dataset_id="synthetic"):
+        super(SyneticDataset2D, self).__init__(dataset_id)
 
     def load_data(self, gs_dir, data_dir):
         raise
@@ -33,4 +33,6 @@ class SyneticDataset2D(PairedDataset2d):
         """Write n replicates of a fixed training coordinate to tfrecord."""
         coords = [(65, 65) for _ in range(n)]
         self.write_training_coordiates(coords, out_dir)
+
+
 
