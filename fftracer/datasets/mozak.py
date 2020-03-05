@@ -120,9 +120,9 @@ class MozakDataset2d(PairedDataset2d):
             temp.append(fa)
         pass
 
-    def generate_and_write_training_coordinates(
-            self, out_dir, n=None, coord_margin=0, method: Optional[str] = None,
-            coord_sampling_prob: Optional[float] = None):
+    def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
+                                      method: Optional[str] = None,
+                                      coord_sampling_prob: Optional[float] = None):
         assert not np.all(self.y == self.pom_pad), \
             "cannot generate training coordinates from empty labels map"
         if method == "uniform_by_dataset":
@@ -135,6 +135,11 @@ class MozakDataset2d(PairedDataset2d):
             coords = self.sample_training_coordinates_by_fa()
         else:
             raise NotImplementedError
+
+    def generate_and_write_training_coordinates(
+            self, out_dir, n=None, coord_margin=0, method: Optional[str] = None,
+            coord_sampling_prob: Optional[float] = None):
+        coords = self.generate_training_coordinates()
         self._write_training_coordinates(coords, out_dir)
 
 
