@@ -15,7 +15,7 @@ def main(out_dir, num_training_coords):
     # write the synthetic data
     dset.write_tfrecord(out_dir)
     # write some synthetic coordinates
-    dset.generate_training_coordinates(out_dir, num_training_coords)
+    dset.generate_and_write_training_coordinates(out_dir, num_training_coords)
 
 
 if __name__ == "__main__":
