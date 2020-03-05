@@ -71,7 +71,7 @@ class FFNTracerModel(FFNModel):
 
     def __init__(self, deltas=[8, 8, 0], batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
-                 l1lambda=1e-3, self_attention_layer=None, ot_niters=10**5,
+                 l1lambda=1e-3, self_attention_layer=None, ot_niters=10 ** 5,
                  adv_args: Optional[dict] = None):
         """
 
@@ -420,6 +420,9 @@ class FFNTracerModel(FFNModel):
             self.loss, 'Invalid loss detected'
         )
         tf.summary.scalar('ot_loss', self.loss)
+        # compute the pixel loss, just for comparison
+        _ = self.compute_sce_loss(logits, add_summary=True,
+                                  verify_finite=True)
 
     def set_up_patchgan_loss(self, logits):
         self.initialize_adversary(logits, type="patchgan")
