@@ -5,11 +5,11 @@ from scipy.ndimage import gaussian_filter
 import skimage
 
 
-class SyneticDataset2D(PairedDataset2d):
+class SyntheticDataset2D(PairedDataset2d):
     """A simple synthetic dataset for testing."""
 
     def __init__(self, dataset_id="synthetic"):
-        super(SyneticDataset2D, self).__init__(dataset_id)
+        super(SyntheticDataset2D, self).__init__(dataset_id)
 
     def load_data(self, gs_dir, data_dir):
         raise
