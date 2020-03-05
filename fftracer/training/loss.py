@@ -45,7 +45,8 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     return hist
 
 
-def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
+def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
+                           ot_niters=10**5):
     """
     Solve the optimal transport problem for the image pixels, and return the OT
     permutation matrix Pi.
@@ -65,17 +66,20 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
     y_hat_hist = normalize_to_histogram(y_hat)
-    PI = ot.emd(y_hat_hist, y_hist, D)
+    PI = ot.emd(y_hat_hist, y_hist, D, numItermax=ot_niters)
     return PI
 
 
-def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
+def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
+                                 ot_niters=10**5):
     """
     Apply compute_ot_loss_matrix() along batch_dim to get Pi for each image.
 
     :param y: array of shape [batch_size, d, d, 1] representing ground truth.
     :param y_hat: array of shape [batch_size, d, d, 1] representing predictions.
     :param D: distance matrix; this represents the cost of pixel-to-pixel transport.
+    :param ot_niters: The maximum number of iterations before stopping the optimization
+    algorithm if it has not converged.
     :return: np.ndarray of shape [batch_dim, d**2, d**2] where d is the
     total number of pixels in an image. Assumes first axis of y and y_hat is batch_dim.
     """
@@ -88,7 +92,7 @@ def compute_ot_loss_matrix_batch(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray
     for i in np.arange(y.shape[0]):
         y_i = y[i, :, :, 0]
         y_hat_i = y_hat[i, :, :, 0]
-        PI = compute_ot_loss_matrix(y_i, y_hat_i, D)
+        PI = compute_ot_loss_matrix(y_i, y_hat_i, D, ot_niters)
         pi_batch.append(PI)
     # concatenate the results into an array
     pi_batch = np.array(pi_batch)

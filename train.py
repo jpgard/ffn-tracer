@@ -17,7 +17,7 @@ python train.py \
     --max_steps 10000000 \
     --adv_update_every_iters 100 \
     --optimizer $OPTIMIZER \
-    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"l1lambda\": $L1LAMBDA, \"loss_name\": \"$LOSS\", \"self_attention_layer\": $SELF_ATTENTION_LAYER}" \
+    --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"loss_name\": \"$LOSS\", \"ot_niters\": 100}" \
     --adv_args "{\"smooth_labels\": true, \"noisy_label_stddev\": 0.05, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001, \"spectral_normalization\": true}" \
 
 """

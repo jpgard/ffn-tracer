@@ -71,7 +71,7 @@ class FFNTracerModel(FFNModel):
 
     def __init__(self, deltas=[8, 8, 0], batch_size=None, dim=3,
                  fov_size=None, depth=9, loss_name="sigmoid_pixelwise", alpha=1e-6,
-                 l1lambda=1e-3, self_attention_layer=None,
+                 l1lambda=1e-3, self_attention_layer=None, ot_niters=10**5,
                  adv_args: Optional[dict] = None):
         """
 
@@ -103,6 +103,7 @@ class FFNTracerModel(FFNModel):
         self.alpha = alpha
         self.fov_size = fov_size
         self.l1lambda = l1lambda
+        self.ot_niters = ot_niters
         self.self_attention_layer = self_attention_layer
         self.discriminator = None
         self.discriminator_loss = None
@@ -390,7 +391,8 @@ class FFNTracerModel(FFNModel):
         # y_hat_probs to match this type
         y_hat_probs = tf.cast(y_hat_probs, tf.float64)
 
-        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D)
+        _compute_ot_loss_matrix_batch = partial(compute_ot_loss_matrix_batch, D=self.D,
+                                                ot_niters=self.ot_niters)
         _compute_pixel_loss_batch = partial(compute_pixel_loss_batch, D=self.D)
 
         # compute the alpha
