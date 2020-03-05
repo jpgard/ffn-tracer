@@ -35,24 +35,30 @@ class MozakDataset2d(PairedDataset2d):
         x = imread(x_file, as_gray=True)
         self.x = np.array(x)
 
-    def load_data(self, gs_dir, data_dir=None):
-        """
-        Load the image data and the gold standard data.
-        :param gs_dir: directory containing gold-standard trace.
-        :return: None.
-        """
-        if not data_dir:
+    def load_x_data(self, data_dir=None):
+        if data_dir is None:
             self.load_x_from_dap()
         else:
             self.load_x_from_file(data_dir)
 
-            # get the mask data for y
+    def load_y_data(self, gs_dir):
         gs = MozakGoldStandardTrace(self.dataset_id, gs_dir)
         gs.fetch_trace()
         # create "soft labels" map
         self.y = nodes_and_edges_to_trace(gs.nodes, gs.edges, imshape=self.x.shape,
                                           trace_value=self.label_value,
                                           pad_value=self.pom_pad)
+
+    def load_data(self, gs_dir, data_dir=None):
+        """
+        Load the image data and the gold standard data.
+        :param gs_dir: directory containing gold-standard trace (y).
+        :param data_dir: directory containing the input image data (x).
+        :return: None.
+        """
+        self.load_x_data(data_dir)
+        # get the mask data for y
+        self.load_y_data(gs_dir)
         self.check_xy_shapes_match()
         return
 
