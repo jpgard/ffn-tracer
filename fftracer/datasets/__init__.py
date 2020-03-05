@@ -75,7 +75,7 @@ class PairedDataset2d(ABC):
         example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
         return example_proto.SerializeToString()
 
-    def write_training_coordiates(self, coords, out_dir):
+    def write_training_coordinates(self, coords, out_dir):
         """Write coords to out_dir as tfrecord."""
         coord_dir = osp.join(out_dir, "coords")
         if not os.path.exists(coord_dir):

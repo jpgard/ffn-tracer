@@ -1,5 +1,6 @@
 import numpy as np
 from fftracer.datasets import PairedDataset2d
+from fftracer.datasets.mozak import MozakDataset2d
 
 
 class SyneticDataset2D(PairedDataset2d):
@@ -32,7 +33,20 @@ class SyneticDataset2D(PairedDataset2d):
     def generate_training_coordinates(self, out_dir, n):
         """Write n replicates of a fixed training coordinate to tfrecord."""
         coords = [(65, 65) for _ in range(n)]
-        self.write_training_coordiates(coords, out_dir)
+        self.write_training_coordinates(coords, out_dir)
+
+
+class BlurryDataset2D(MozakDataset2d):
+    """A dataset where the x is a blurrier, darker version of the ground truth."""
+    def __init__(self, dataset_id="blurry"):
+        super(BlurryDataset2D, self).__init__(dataset_id)
+
+    def generate_blurry_x(self):
+
+
+    def initialize_data(self, gs_dir):
+        """Load """
+        self.load_y_data(gs_dir)
 
 
 

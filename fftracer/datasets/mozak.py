@@ -135,7 +135,7 @@ class MozakDataset2d(PairedDataset2d):
             coords = self.sample_training_coordinates_by_fa()
         else:
             raise NotImplementedError
-        self.write_training_coordiates(coords, out_dir)
+        self.write_training_coordinates(coords, out_dir)
 
 
 class MozakDataset3d(MozakDataset2d):
