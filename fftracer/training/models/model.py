@@ -379,6 +379,10 @@ class FFNTracerModel(FFNModel):
 
     def set_up_ot_loss(self, logits):
         """Set up the optimal transport loss."""
+        # Compute the pixel loss, just for comparison
+        _ = self.compute_sce_loss(logits, add_summary=True,
+                                  verify_finite=True)
+
         # Logits has shape [batch_size, z, y, x, num_channels]
         assert logits.get_shape().as_list()[1] == 1, \
             "OT loss currently only implemented for 2D, expecting Z dimension of 1."
@@ -420,9 +424,6 @@ class FFNTracerModel(FFNModel):
             self.loss, 'Invalid loss detected'
         )
         tf.summary.scalar('ot_loss', self.loss)
-        # compute the pixel loss, just for comparison
-        _ = self.compute_sce_loss(logits, add_summary=True,
-                                  verify_finite=True)
 
     def set_up_patchgan_loss(self, logits):
         self.initialize_adversary(logits, type="patchgan")
