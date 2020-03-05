@@ -120,9 +120,9 @@ class MozakDataset2d(PairedDataset2d):
             temp.append(fa)
         pass
 
-    def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
-                                      method: Optional[str] = None,
-                                      coord_sampling_prob: Optional[float] = None):
+    def generate_and_write_training_coordinates(
+            self, out_dir, n=None, coord_margin=0, method: Optional[str] = None,
+            coord_sampling_prob: Optional[float] = None):
         assert not np.all(self.y == self.pom_pad), \
             "cannot generate training coordinates from empty labels map"
         if method == "uniform_by_dataset":
@@ -140,12 +140,14 @@ class MozakDataset2d(PairedDataset2d):
 
 class MozakDataset3d(MozakDataset2d):
     """A container for 3d mozak data."""
+
     def load_x_from_dap(self):
         from mozak.datasets.img import MozakNeuronVolume
         # TODO(jpgard): find the res_level corresponding to the same resolution as the
         #  image pixels. This is probably res_level=0, but note that this will be slow
         #  to load.
-        import ipdb;ipdb.set_trace()
+        import ipdb;
+        ipdb.set_trace()
         volume = MozakNeuronVolume(self.dataset_id, res_level=4)
         volume.fetch_image()
         self.x = volume.img
@@ -178,7 +180,8 @@ class MozakDataset3d(MozakDataset2d):
                                            #  arrays, not pre-softened arrays.
                                            pad_value=self.pom_pad
                                            )
-        import ipdb;ipdb.set_trace()
+        import ipdb;
+        ipdb.set_trace()
         # TODO(jpgard): write the Y volume to slices and then convert to HDF5; then,
         #  check the results in a viewer to see whether they correspond to the neural
         #  image and tracing is correct(probably will require some reflection due to

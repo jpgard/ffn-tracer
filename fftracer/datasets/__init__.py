@@ -95,7 +95,7 @@ class PairedDataset2d(ABC):
                 writer.write(coord.SerializeToString())
 
     @abstractmethod
-    def generate_training_coordinates(self, out_dir, n, **kwargs):
+    def generate_and_write_training_coordinates(self, out_dir, n, **kwargs):
         """Sample a set of training coordinates and write to tfrecord file.
 
         This method does the work of ffn's build_coordinates.py, but as a class method
