@@ -45,7 +45,8 @@ def normalize_to_histogram(im: np.ndarray, dout=np.float64) -> np.ndarray:
     return hist
 
 
-def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
+def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray,
+                           method="ot.emd"):
     """
     Solve the optimal transport problem for the image pixels, and return the OT
     permutation matrix Pi.
@@ -65,7 +66,11 @@ def compute_ot_loss_matrix(y: np.ndarray, y_hat: np.ndarray, D: np.ndarray):
     np.testing.assert_array_equal(y.shape, y_hat.shape)  # check images same size
     y_hist = normalize_to_histogram(y)
     y_hat_hist = normalize_to_histogram(y_hat)
-    PI = ot.emd(y_hat_hist, y_hist, D)
+    if method == "ot.emd":
+        PI = ot.emd(y_hat_hist, y_hist, D)
+    elif method == "ot.sinkhorn":
+        # compute the equivalent sinkhorn LP with regularization set to zero.
+        PI = ot.sinkhorn(y_hat_hist, y_hist, D, reg=0.)
     return PI
 
 
