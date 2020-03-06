@@ -97,28 +97,6 @@ class MozakDataset2d(PairedDataset2d):
         sample = [xy.tolist() for xy in sample]
         return sample
 
-    def sample_training_coordinates_by_fa(self, thresholds=FA_THRESHOLDS,
-                                          fov_size_zyx=(1, 135, 135),
-                                          deltas_zyx=(0, 8, 8)):
-        # apply the most conservative margin
-        # TODO(jpgard): apply unique margins across each dimension instead; will be
-        #  necessary for 3D when data are anisotropic.
-        coord_margin = ((max(fov_size_zyx) - 1) // 2) + max(deltas_zyx)
-        candidate_indices = self.get_pos_label_locations(coord_margin)
-        start_offset_xyz = (np.array(fov_size_zyx[::-1]) - 1) // 2
-        temp = list()
-        # for each index, compute its fa
-        for ix in candidate_indices:
-            coord_xyz = ix.tolist() + [0]
-            start = coord_xyz - start_offset_xyz  # the "lower-left" corner of slice
-            # get the f_a for this row
-            slc_zyx = bounding_box.BoundingBox(
-                start=start, size=fov_size_zyx[::-1]).to_slice()
-            # slice the input image, ignoring the z-dimension
-            data = self.y[slc_zyx[-1:0:-1]]
-            fa = (data == self.label_value).mean()
-            temp.append(fa)
-        pass
 
     def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
                                       method: Optional[str] = None,
@@ -128,18 +106,16 @@ class MozakDataset2d(PairedDataset2d):
         if method == "uniform_by_dataset":
             coords = self.uniformly_sample_training_coordinates(n, coord_margin)
         if method == "proportional_by_dataset":
-            coords = self.proportionally_sample_training_coordinates(coord_sampling_prob,
-                                                                     coord_margin)
-        elif method == "balanced_fa":
-            # TODO(jpgard): implement this
-            coords = self.sample_training_coordinates_by_fa()
+            coords = self.proportionally_sample_training_coordinates(
+                coord_sampling_prob, coord_margin)
         else:
             raise NotImplementedError
+        return coords
 
     def generate_and_write_training_coordinates(
-            self, out_dir, n=None, coord_margin=0, method: Optional[str] = None,
-            coord_sampling_prob: Optional[float] = None):
-        coords = self.generate_training_coordinates()
+            self, out_dir, **kwargs):
+        coords = self.generate_training_coordinates(
+            out_dir, **kwargs)
         self._write_training_coordinates(coords, out_dir)
 
 
