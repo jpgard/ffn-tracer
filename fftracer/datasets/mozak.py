@@ -97,8 +97,7 @@ class MozakDataset2d(PairedDataset2d):
         sample = [xy.tolist() for xy in sample]
         return sample
 
-
-    def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
+    def generate_training_coordinates(self, n=None, coord_margin=0,
                                       method: Optional[str] = None,
                                       coord_sampling_prob: Optional[float] = None):
         assert not np.all(self.y == self.pom_pad), \
@@ -114,8 +113,7 @@ class MozakDataset2d(PairedDataset2d):
 
     def generate_and_write_training_coordinates(
             self, out_dir, **kwargs):
-        coords = self.generate_training_coordinates(
-            out_dir, **kwargs)
+        coords = self.generate_training_coordinates(**kwargs)
         self._write_training_coordinates(coords, out_dir)
 
 
