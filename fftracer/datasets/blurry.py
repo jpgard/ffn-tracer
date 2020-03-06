@@ -7,6 +7,7 @@ import numpy as np
 from skimage.io import imread
 from fftracer.utils import VALID_IMAGE_EXTENSIONS
 import os.path as osp
+import cv2
 
 
 class BlurryDataset2D(MozakDataset2d):
@@ -25,11 +26,11 @@ class BlurryDataset2D(MozakDataset2d):
         """Load the ground-truth data and generate noisy x from it."""
         self.get_x_shape(img_dir)
         self.load_y_data(gs_dir)
-        # self.x = make_blurry_image(self.y)
+        self.x = make_blurry_image(self.y)
 
 
 def make_blurry_image(y, intensity_reduction=0.75, zero_proportion=0.1,
-                      smoothing_factor=0.125, noise_variance=1e-4):
+                      kernel_size=(10,10), noise_variance=1e-4):
     """
     Generate a 'real'-looking version of the image data for y.
 
@@ -39,13 +40,14 @@ def make_blurry_image(y, intensity_reduction=0.75, zero_proportion=0.1,
     :param y: the input image.
     :param intensity_reduction: the factor by which to increase the intensity.
     :param zero_proportion: the fraction of pixels in the image to set to zero.
-    :param smoothing_factor: higher values result in more smoothing but preserve less
-    structure in the image.
+    :param kernel_size: kernel size to use for blurring. Higher values result in more
+    blurring but less shape in the resulting image.
     :param noise_variance: variance of the gaussian random noise added.
     :return: a noised/blurred version of the input array.
     """
+    print("[INFO] blurring image...")
     # Smooth the image and add noise.
-    y = gaussian_filter(y, sigma=smoothing_factor * y.shape[0])
+    y = cv2.blur(y, kernel_size)
     y /= y.max()  # gaussian filtering reduces intensity; rescale to range [0,1]
     y = skimage.util.random_noise(y, var=noise_variance)
     # Randomly mask out zero_proportion of pixels in image
@@ -53,4 +55,5 @@ def make_blurry_image(y, intensity_reduction=0.75, zero_proportion=0.1,
     y *= zero_mask.astype(y.dtype)
     # Reduce the intensity by the specified factor.
     y *= intensity_reduction
+    print("[INFO] blurring image complete.")
     return y
