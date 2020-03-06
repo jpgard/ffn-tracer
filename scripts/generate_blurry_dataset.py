@@ -25,6 +25,7 @@ Image.MAX_IMAGE_PIXELS = None
 
 
 def main(dataset_ids, out_dir, gs_dir, train_data_sampling, img_dir):
+    neuron_offsets = dict()
     for dataset_id in dataset_ids:
         dset = BlurryDataset2D(dataset_id)
         dset.load_and_generate_data(gs_dir, img_dir)
@@ -34,6 +35,11 @@ def main(dataset_ids, out_dir, gs_dir, train_data_sampling, img_dir):
         dset.generate_and_write_training_coordinates(
             out_dir=out_dir, method=train_data_sampling, coord_margin=200,
             coord_sampling_prob=0.25)
+        # save the offets
+        neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
+        del dset
+    # write offsets to csv
+    offset_dict_to_csv(neuron_offsets, out_dir=osp.join(out_dir, "offsets"))
 
 
 if __name__ == "__main__":
