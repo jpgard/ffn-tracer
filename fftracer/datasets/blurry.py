@@ -30,7 +30,7 @@ class BlurryDataset2D(MozakDataset2d):
 
 
 def make_blurry_image(y, intensity_reduction=0.75, zero_proportion=0.1,
-                      kernel_size=(10,10), noise_variance=1e-4):
+                      kernel_size=(8, 8), noise_variance=1e-4):
     """
     Generate a 'real'-looking version of the image data for y.
 
