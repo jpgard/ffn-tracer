@@ -21,9 +21,6 @@ python train.py \
 
 """
 
-# tfrecord_dir ./data${DATA} / tfrecords
-# coordinate_dir. / data${DATA} / coords
-
 from collections import deque
 from functools import partial
 import itertools
