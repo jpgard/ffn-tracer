@@ -5,22 +5,24 @@ This script mostly follows the logic of the original ffn train.py script, with c
 data loading for mozak/allen institute imaging.
 
 usage:
-export OPTIMIZER="adam";LOSS="ot";FOV=49;SELF_ATTENTION_LAYER=7;L1LAMBDA=0.01
-export GPU_ID="3,4"
+export OPTIMIZER="adam";LOSS="ot";FOV=49
+export GPU_ID="3"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
+export DATA="clean-02-2020"
+export DATA="blurry"
 
 python train.py \
-    --tfrecord_dir ./data${DATA}/tfrecords \
-    --coordinate_dir ./data${DATA}/coords \
+    --data_uid $DATA
     --image_mean 78 --image_stddev 20 \
     --max_steps 10000000 \
-    --adv_update_every_iters 100 \
     --optimizer $OPTIMIZER \
     --model_args "{\"fov_size\": [${FOV}, ${FOV}, 1], \"loss_name\": \"$LOSS\", \"ot_niters\": 100}" \
-    --adv_args "{\"smooth_labels\": true, \"noisy_label_stddev\": 0.05, \"optimizer_name\": \"sgd\", \"learning_rate\": 0.000001, \"spectral_normalization\": true}" \
 
 """
+
+# tfrecord_dir ./data${DATA} / tfrecords
+# coordinate_dir. / data${DATA} / coords
 
 from collections import deque
 from functools import partial
@@ -320,8 +322,9 @@ def define_data_input(model, queue_batch=None):
     permutable_axes = np.array(FLAGS.permutable_axes, dtype=np.int32)
     reflectable_axes = np.array(FLAGS.reflectable_axes, dtype=np.int32)
 
+    tfrecord_dir = os.path.join(FLAGS.data_dir, FLAGS.data_uid, "tfrecords")
     image_volume_map, label_volume_map = input.load_img_and_label_maps_from_tfrecords(
-        FLAGS.tfrecord_dir)
+        tfrecord_dir)
     # write the datasets to debugging directory
     if FLAGS.debug:
         for dataset_id in image_volume_map.keys():
@@ -340,7 +343,8 @@ def define_data_input(model, queue_batch=None):
     image_size_xyz = train_image_size(model).tolist()
     # Fetch a single coordinate and volume name from a queue reading the
     # coordinate files or from saved hard/important examples
-    coord_zyx, volname = input.load_patch_coordinates(FLAGS.coordinate_dir)
+    coordinate_dir = os.path.join(FLAGS.data_dir, FLAGS.data_uid, "coords")
+    coord_zyx, volname = input.load_patch_coordinates(coordinate_dir)
     # Coordinates are stored in zyx order but are used in xyz order for loading functions,
     # so they need to be reversed.
     coord_xyz = tf.reverse(coord_zyx, [False, True])

@@ -8,10 +8,14 @@ from absl import flags
 def make_training_flags():
     """Create the experiment_flags for training."""
     # fftracer-specific options
-    flags.DEFINE_string('tfrecord_dir', None, "directory containng tfrecord files of "
-                                              "labeled input data volumes")
-    flags.DEFINE_string("coordinate_dir", None, "directory containng tfrecord files of "
-                                                "patch coordinates")
+    flags.DEFINE_string("data_dir",
+                        "./data", "directory containing the data. It should contain "
+                                  "subdirectories for `data_id`, and the `data_id` "
+                                  "subdirectory should contain `tfrecords` and `coords` "
+                                  "directories.")
+    flags.DEFINE_string("data_uid", None, "a unique identifier for this dataset, "
+                                         "which also identifies a subdirectory in "
+                                         "data_dir containing the tfrecords and coords.")
     flags.DEFINE_boolean("debug", False, "produces debugging output")
     flags.DEFINE_list('permutable_axes', ['1', '2'],
                       'List of integers equal to a subset of [0, 1, 2] specifying '
@@ -86,10 +90,11 @@ def make_training_flags():
 def uid_from_flags(flags):
     """Construct a uique string identifier for an experiment."""
     model_args = json.loads(flags.model_args)
-    uid = "bs{batch_size}lr{learning_rate}opt{optimizer}".format(
+    uid = "bs{batch_size}lr{learning_rate}opt{optimizer}data{data_uid}".format(
         batch_size=flags.batch_size,
         learning_rate=flags.learning_rate,
-        optimizer=flags.optimizer
+        optimizer=flags.optimizer,
+        data_uid=flags.data_uid
     )
     # model_args are handled separately; these require some extra logic to parse
     uid += "fov{}".format("".join([str(x) for x in model_args.pop("fov_size")]))
