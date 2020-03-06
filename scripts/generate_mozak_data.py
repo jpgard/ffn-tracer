@@ -35,6 +35,7 @@ from fftracer.datasets import offset_dict_to_csv
 import os.path as osp
 
 from PIL import Image
+
 # Disable PIL DecompressionBombError for large images
 Image.MAX_IMAGE_PIXELS = None
 
@@ -53,9 +54,10 @@ def main(dataset_ids, gs_dir, out_dir, num_training_coords, coord_margin_xy,
         # write data to a tfrecord file
         dset.write_tfrecord(out_dir)
         # write training coordinates (this does work of ffn's build_coordinates.py)
-        dset.generate_training_coordinates(out_dir, num_training_coords, coord_margin_xy,
-                                           method=train_data_sampling,
-                                           coord_sampling_prob=coord_sampling_prob)
+        dset.generate_and_write_training_coordinates(out_dir, num_training_coords,
+                                                     coord_margin_xy,
+                                                     method=train_data_sampling,
+                                                     coord_sampling_prob=coord_sampling_prob)
         # save the offets
         neuron_offsets[dataset_id] = dset.fetch_mean_and_std()
         del dset

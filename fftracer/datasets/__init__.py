@@ -75,8 +75,8 @@ class PairedDataset2d(ABC):
         example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
         return example_proto.SerializeToString()
 
-    def write_training_coordiates(self, coords, out_dir):
-        """Write coords to out_dir as tfrecord."""
+    def _write_training_coordinates(self, coords, out_dir):
+        """Write a set of coords to out_dir as tfrecord."""
         coord_dir = osp.join(out_dir, "coords")
         if not os.path.exists(coord_dir):
             os.makedirs(coord_dir)
@@ -95,7 +95,7 @@ class PairedDataset2d(ABC):
                 writer.write(coord.SerializeToString())
 
     @abstractmethod
-    def generate_training_coordinates(self, out_dir, n, **kwargs):
+    def generate_and_write_training_coordinates(self, out_dir, n, **kwargs):
         """Sample a set of training coordinates and write to tfrecord file.
 
         This method does the work of ffn's build_coordinates.py, but as a class method

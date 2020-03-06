@@ -35,24 +35,30 @@ class MozakDataset2d(PairedDataset2d):
         x = imread(x_file, as_gray=True)
         self.x = np.array(x)
 
-    def load_data(self, gs_dir, data_dir=None):
-        """
-        Load the image data and the gold standard data.
-        :param gs_dir: directory containing gold-standard trace.
-        :return: None.
-        """
-        if not data_dir:
+    def load_x_data(self, data_dir=None):
+        if data_dir is None:
             self.load_x_from_dap()
         else:
             self.load_x_from_file(data_dir)
 
-            # get the mask data for y
+    def load_y_data(self, gs_dir):
         gs = MozakGoldStandardTrace(self.dataset_id, gs_dir)
         gs.fetch_trace()
         # create "soft labels" map
         self.y = nodes_and_edges_to_trace(gs.nodes, gs.edges, imshape=self.x.shape,
                                           trace_value=self.label_value,
                                           pad_value=self.pom_pad)
+
+    def load_data(self, gs_dir, data_dir=None):
+        """
+        Load the image data and the gold standard data.
+        :param gs_dir: directory containing gold-standard trace (y).
+        :param data_dir: directory containing the input image data (x).
+        :return: None.
+        """
+        self.load_x_data(data_dir)
+        # get the mask data for y
+        self.load_y_data(gs_dir)
         self.check_xy_shapes_match()
         return
 
@@ -91,30 +97,7 @@ class MozakDataset2d(PairedDataset2d):
         sample = [xy.tolist() for xy in sample]
         return sample
 
-    def sample_training_coordinates_by_fa(self, thresholds=FA_THRESHOLDS,
-                                          fov_size_zyx=(1, 135, 135),
-                                          deltas_zyx=(0, 8, 8)):
-        # apply the most conservative margin
-        # TODO(jpgard): apply unique margins across each dimension instead; will be
-        #  necessary for 3D when data are anisotropic.
-        coord_margin = ((max(fov_size_zyx) - 1) // 2) + max(deltas_zyx)
-        candidate_indices = self.get_pos_label_locations(coord_margin)
-        start_offset_xyz = (np.array(fov_size_zyx[::-1]) - 1) // 2
-        temp = list()
-        # for each index, compute its fa
-        for ix in candidate_indices:
-            coord_xyz = ix.tolist() + [0]
-            start = coord_xyz - start_offset_xyz  # the "lower-left" corner of slice
-            # get the f_a for this row
-            slc_zyx = bounding_box.BoundingBox(
-                start=start, size=fov_size_zyx[::-1]).to_slice()
-            # slice the input image, ignoring the z-dimension
-            data = self.y[slc_zyx[-1:0:-1]]
-            fa = (data == self.label_value).mean()
-            temp.append(fa)
-        pass
-
-    def generate_training_coordinates(self, out_dir, n=None, coord_margin=0,
+    def generate_training_coordinates(self, n=None, coord_margin=0,
                                       method: Optional[str] = None,
                                       coord_sampling_prob: Optional[float] = None):
         assert not np.all(self.y == self.pom_pad), \
@@ -122,24 +105,28 @@ class MozakDataset2d(PairedDataset2d):
         if method == "uniform_by_dataset":
             coords = self.uniformly_sample_training_coordinates(n, coord_margin)
         if method == "proportional_by_dataset":
-            coords = self.proportionally_sample_training_coordinates(coord_sampling_prob,
-                                                                     coord_margin)
-        elif method == "balanced_fa":
-            # TODO(jpgard): implement this
-            coords = self.sample_training_coordinates_by_fa()
+            coords = self.proportionally_sample_training_coordinates(
+                coord_sampling_prob, coord_margin)
         else:
             raise NotImplementedError
-        self.write_training_coordiates(coords, out_dir)
+        return coords
+
+    def generate_and_write_training_coordinates(
+            self, out_dir, **kwargs):
+        coords = self.generate_training_coordinates(**kwargs)
+        self._write_training_coordinates(coords, out_dir)
 
 
 class MozakDataset3d(MozakDataset2d):
     """A container for 3d mozak data."""
+
     def load_x_from_dap(self):
         from mozak.datasets.img import MozakNeuronVolume
         # TODO(jpgard): find the res_level corresponding to the same resolution as the
         #  image pixels. This is probably res_level=0, but note that this will be slow
         #  to load.
-        import ipdb;ipdb.set_trace()
+        import ipdb;
+        ipdb.set_trace()
         volume = MozakNeuronVolume(self.dataset_id, res_level=4)
         volume.fetch_image()
         self.x = volume.img
@@ -172,7 +159,8 @@ class MozakDataset3d(MozakDataset2d):
                                            #  arrays, not pre-softened arrays.
                                            pad_value=self.pom_pad
                                            )
-        import ipdb;ipdb.set_trace()
+        import ipdb;
+        ipdb.set_trace()
         # TODO(jpgard): write the Y volume to slices and then convert to HDF5; then,
         #  check the results in a viewer to see whether they correspond to the neural
         #  image and tracing is correct(probably will require some reflection due to
