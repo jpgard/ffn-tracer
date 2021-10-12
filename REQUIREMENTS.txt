@@ -146,7 +146,7 @@ numba==0.47.0
 numpy==1.16.2
 oauth2client==3.0.0
 oauthlib==3.1.0
-opencv-python==4.1.1.26
+opencv-python==4.2.0.32
 opt-einsum==3.1.0
 packaging==19.0
 pandas==0.23.4
