@@ -37,7 +37,7 @@ crcmod==1.7
 cycler==0.10.0
 Cython==0.29.6
 -e git+https://gitlab.cs.washington.edu/jpgard/darpa-ateams-test-analysis.git@2ade241de3c405127bebb46c74ccbddd25b5f410#egg=darpa&subdirectory=src
-dask==1.0.0
+dask==2021.10.0
 decorator==4.3.0
 defusedxml==0.5.0
 dill==0.3.0
