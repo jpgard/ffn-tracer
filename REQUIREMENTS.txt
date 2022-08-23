@@ -131,7 +131,7 @@ msgpack==0.6.0
 mujoco-py==1.50.1.68
 mysql-connector-python==8.0.15
 mysql-connector-python-rf==2.2.2
-nbconvert==5.4.1
+nbconvert==6.5.1
 nbformat==4.4.0
 nervananeon==2.6.0
 nest-asyncio==1.2.0
